@@ -61,9 +61,12 @@
 
     <!-- Followed Cookie Ledger -->
     <section class="ledger-section">
-      <div class="log-header">
-        <span>FOLLOWED COOKIE LEDGER (ANTI-REINJECTION)</span>
-        <span id="reinjectCountBadge" class="ledger-badge">0 blocked</span>
+      <div id="ledgerHeaderToggle" class="log-header clickable-header" title="Click to expand/collapse cookie ledger">
+        <span>FOLLOWED COOKIE LEDGER</span>
+        <div class="header-actions">
+          <span id="reinjectCountBadge" class="ledger-badge">0 blocked</span>
+          <button id="btnToggleLedger" class="expand-btn">Expand &#9662;</button>
+        </div>
       </div>
       <div id="cookieLedgerList" class="ledger-feed">
         <div class="log-empty">No manipulated cookies tracked on this tab yet.</div>
@@ -120,7 +123,10 @@
     <section class="log-section">
       <div class="log-header">
         <span>LIVE SNIFFER &amp; POISON FEED</span>
-        <button id="btnClearLog" class="clear-btn">Clear</button>
+        <div class="header-actions">
+          <button id="btnToggleLog" class="expand-btn">Expand &#9662;</button>
+          <button id="btnClearLog" class="clear-btn">Clear</button>
+        </div>
       </div>
       <div id="logFeed" class="log-feed">
         <div class="log-empty">No tracking attempts intercepted on this tab yet.</div>
