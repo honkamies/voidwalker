@@ -49,9 +49,13 @@
   } catch (_) {}
 
   // Listen for stealth CustomEvent telemetry/sniffer events from MAIN world (page-hook.js)
+  const seenEventSigs = new Set();
   window.addEventListener(EVT_TO_CONTENT, (event) => {
     const data = event && event.detail;
     if (!data || !data.__cookieGuardianEvent) return;
+    const sig = `${data.type}|${data.detail && data.detail.summary}|${data.detail && data.detail.timestamp}`;
+    if (seenEventSigs.has(sig)) return;
+    seenEventSigs.add(sig);
     try {
       chrome.runtime.sendMessage({
         action: 'LOG_GUARDIAN_EVENT',
@@ -60,6 +64,15 @@
       });
     } catch (_) {}
   });
+
+  // Immediately signal BRIDGE_READY so page-hook.js flushes any document_start events
+  try {
+    window.dispatchEvent(
+      new CustomEvent(EVT_TO_MAIN, {
+        detail: { type: 'BRIDGE_READY' }
+      })
+    );
+  } catch (_) {}
 
   // Listen for commands from Popup / Background (only handle UI actions in top frame)
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

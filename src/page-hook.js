@@ -105,9 +105,13 @@
     };
   }
 
+  let bridgeReady = false;
+  const earlyEventQueue = [];
+
   function emitEvent(type, detail) {
     try {
       const payload = {
+        __cookieGuardianEvent: true,
         type,
         detail: {
           ...detail,
@@ -116,18 +120,37 @@
           domain: location.hostname || 'local'
         }
       };
+      if (!bridgeReady) {
+        if (earlyEventQueue.length < 60) {
+          earlyEventQueue.push(payload);
+        }
+      }
       window.dispatchEvent(new CustomEvent(EVENT_TO_ISOLATED, { detail: payload }));
     } catch (_) {}
+  }
+
+  function flushEarlyEvents() {
+    if (bridgeReady) return;
+    bridgeReady = true;
+    while (earlyEventQueue.length > 0) {
+      const payload = earlyEventQueue.shift();
+      try {
+        window.dispatchEvent(new CustomEvent(EVENT_TO_ISOLATED, { detail: payload }));
+      } catch (_) {}
+    }
   }
 
   window.addEventListener(EVENT_FROM_ISOLATED, (event) => {
     const data = event && event.detail;
     if (!data || typeof data !== 'object') return;
-    if (data.type === 'CONFIG_UPDATE' && data.config) {
+    if ((data.type === 'CONFIG' || data.type === 'CONFIG_UPDATE') && data.config) {
       Object.assign(config, data.config);
+      flushEarlyEvents();
       if (config.enabled && config.cookieMutator) {
         enforceCookieLedgerWatchdog();
       }
+    } else if (data.type === 'BRIDGE_READY') {
+      flushEarlyEvents();
     } else if (data.type === 'ROTATE_PERSONA') {
       Object.assign(FAKE_PERSONA, generateFakePersona());
       rotateAllLedgerCookiesToNewPersona();
@@ -522,9 +545,9 @@
   const SAFE_KEY_PATTERNS =
     /^(euconsent-v2|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|sp_tcfv2|didomi_token|didomi_dcs|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-|__Secure-|csrf|xsrf|auth|session|login|cart|theme|lang|locale|cf_clearance|__cf_bm)/i;
 
-  // Tracker cookie name patterns (matches versioned suffixes like _ga_ABC123, _sp_v2_uid, consentUUID_v2, AMCV_xxx, etc.)
+  // Tracker cookie name patterns (matches versioned suffixes like _ga_ABC123, _sp_v2_uid, consentUUID_v2, Chartbeat _cb, Cxense cX_, Piano _pcid, etc.)
   const TRACKER_KEY_PATTERNS =
-    /^(_ga($|_)|_gid($|_)|_gat($|_)|_gcl_|_fbp($|_)|_fbc($|_)|_uetsid|_uetvid|consentUUID|_sp_v\d+_uid|_sp_v\d+_p|s_ecid|AMCV_|AMCVS_|s_cc$|s_sq$|s_vi|demdex|IDE$|muid|uuid2|anj$|_ym_|hubspotutk|ajs_anonymous_id|ajs_user_id|mp_.*_mixpanel|amplitude_id|_pin_unauth|_ttp|criteo|cto_|outbrain|taboola|lotame|panoramaId|__gads|__gpi|utag_main|_parsely|_chartbeat|_cx_|permutive)/i;
+    /^(_ga($|_)|_gid($|_)|_gat($|_)|_gcl_|_fbp($|_)|_fbc($|_)|_uetsid|_uetvid|consentUUID|consentDate|_sp_v\d+_uid|_sp_v\d+_p|_cb($|_)|_chartbeat|_v__chartbeat|_pcid|_pctx|_pprv|cX_|FPID|FPLC|im_uid|s_ecid|AMCV_|AMCVS_|s_cc$|s_sq$|s_vi|demdex|IDE$|muid|uuid2|anj$|_ym_|hubspotutk|ajs_anonymous_id|ajs_user_id|mp_.*_mixpanel|amplitude_id|_pin_unauth|_ttp|criteo|cto_|outbrain|taboola|lotame|panoramaId|__gads|__gpi|utag_main|_parsely|_cx_|permutive)/i;
 
   /**
    * Canonical family name for version-bump detection.
