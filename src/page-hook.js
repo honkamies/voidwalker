@@ -736,7 +736,8 @@
         reInjectionsBlocked: isVersionBump ? 1 : 0,
         wasClearedBySite: false,
         attrs: rawAttrTail || '; path=/',
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        lastReportedAt: Date.now()
       };
       cookieLedger.set(cleanKey, entry);
       familyLedger.set(family, entry);
@@ -762,26 +763,33 @@
       if (rawAttrTail && !/max-age\s*=\s*-?0\b/i.test(rawAttrTail) && !/expires\s*=\s*[^;]*1970/i.test(rawAttrTail)) {
         entry.attrs = rawAttrTail;
       }
-      entry.updatedAt = Date.now();
+      const now = Date.now();
+      entry.updatedAt = now;
 
       if (isNewAttempt) {
         entry.versionCount++;
-        entry.reInjectionsBlocked++;
         const reason = entry.wasClearedBySite ? 'delete+reinject' : `v${entry.versionCount} overwrite`;
+        const wasExplicitClear = entry.wasClearedBySite;
         entry.wasClearedBySite = false;
 
-        emitEvent('COOKIE_REINJECTION_BLOCKED', {
-          name: cleanKey,
-          cookieName: cleanKey,
-          poisoned: poisonedVal,
-          lockedValue: poisonedVal,
-          source: 'JS',
-          originalPreview: cleanVal.slice(0, 18),
-          mutatedPreview: poisonedVal.slice(0, 18),
-          version: entry.versionCount,
-          reInjection: true,
-          summary: `Blocked ${reason} on '${cleanKey}' \u2014 kept fake ID ${poisonedVal.slice(0, 12)}...`
-        });
+        // Rate-limit badge/log notifications for background heartbeat timers (e.g. GA4 on hs.fi)
+        // so we block the write 100% of the time without inflating the counter while idle
+        if (wasExplicitClear || !entry.lastReportedAt || now - entry.lastReportedAt >= 30000 || entry.reInjectionsBlocked === 0) {
+          entry.reInjectionsBlocked++;
+          entry.lastReportedAt = now;
+          emitEvent('COOKIE_REINJECTION_BLOCKED', {
+            name: cleanKey,
+            cookieName: cleanKey,
+            poisoned: poisonedVal,
+            lockedValue: poisonedVal,
+            source: 'JS',
+            originalPreview: cleanVal.slice(0, 18),
+            mutatedPreview: poisonedVal.slice(0, 18),
+            version: entry.versionCount,
+            reInjection: true,
+            summary: `Blocked ${reason} on '${cleanKey}' \u2014 kept fake ID ${poisonedVal.slice(0, 12)}...`
+          });
+        }
       }
     }
 
@@ -810,6 +818,26 @@
     }
   }
 
+  /**
+   * Overwrites a cookie across both host-only and parent-domain scopes (e.g. www.hs.fi and .hs.fi)
+   * so parent-domain cookies never linger alongside host-only cookies in document.cookie.
+   */
+  function writeCookieAcrossDomainScopes(k, poisonedVal, attrTail) {
+    if (attrTail && /domain\s*=/i.test(attrTail)) {
+      rawCookieSet(`${k}=${poisonedVal}${attrTail}`);
+      return;
+    }
+    rawCookieSet(`${k}=${poisonedVal}${attrTail || '; path=/'}`);
+    try {
+      const host = location.hostname || '';
+      const parts = host.split('.');
+      if (parts.length >= 2) {
+        const rootDomain = parts.slice(-2).join('.');
+        rawCookieSet(`${k}=${poisonedVal}; domain=.${rootDomain}; path=/`);
+      }
+    } catch (_) {}
+  }
+
   function rotateAllLedgerCookiesToNewPersona() {
     ourPoisonedValues.clear();
     for (const [key, entry] of cookieLedger.entries()) {
@@ -818,7 +846,7 @@
       entry.poisonedVal = newPoison;
       entry.versionCount++;
       entry.updatedAt = Date.now();
-      rawCookieSet(`${key}=${newPoison}${entry.attrs || '; path=/'}`);
+      writeCookieAcrossDomainScopes(key, newPoison, entry.attrs);
     }
   }
 
@@ -842,16 +870,13 @@
   /**
    * Self-healing Watchdog:
    * Inspects the real browser cookie jar (`rawCookieGet()`).
-   * 1. If any cookie in `cookieLedger` was overwritten by an HTTP Set-Cookie header or sub-frame
-   *    with a value != `entry.poisonedVal`, immediately snap it back to `entry.poisonedVal`.
-   * 2. If any cookie in `cookieLedger` was deleted from the jar, restore it.
-   * 3. If any new unmutated tracker cookie appeared in `document.cookie` (e.g., set by HTTP header),
-   *    enroll it into `cookieLedger` and overwrite it in the jar.
+   * Groups cookies by name so if both a `.domain.fi` and `www.domain.fi` scope exist,
+   * it heals the parent-domain scope without triggering false re-injection loops.
    */
   function enforceCookieLedgerWatchdog() {
     if (!config.enabled || !config.cookieMutator) return;
     const raw = rawCookieGet();
-    const seenInJar = new Map();
+    const valuesByKey = new Map();
 
     if (raw) {
       const pairs = raw.split(';');
@@ -861,24 +886,38 @@
         const k = pair.slice(0, eqIdx).trim();
         const v = pair.slice(eqIdx + 1).trim();
         if (!k) continue;
-        seenInJar.set(k, v);
+        if (!valuesByKey.has(k)) valuesByKey.set(k, []);
+        valuesByKey.get(k).push(v);
+      }
 
-        if (isTrackingKeyOrValue(k, v)) {
-          const existing = cookieLedger.get(k);
-          if (!existing || v !== existing.poisonedVal) {
-            const { poisonedVal, isDeletion } = trackAndMutateInLedger(k, v, '; path=/', 'Watchdog');
-            if (!isDeletion && poisonedVal !== v) {
-              rawCookieSet(`${k}=${poisonedVal}; path=/`);
+      for (const [k, vals] of valuesByKey.entries()) {
+        const sampleVal = vals[0];
+        if (!isTrackingKeyOrValue(k, sampleVal)) continue;
+
+        const existing = cookieLedger.get(k);
+        if (!existing) {
+          const { poisonedVal, isDeletion } = trackAndMutateInLedger(k, sampleVal, '; path=/', 'Watchdog');
+          if (!isDeletion && poisonedVal !== sampleVal) {
+            writeCookieAcrossDomainScopes(k, poisonedVal, '; path=/');
+          }
+        } else {
+          // If ANY scope of this cookie already has our poisonedVal, just heal any stale domain scope silently
+          const hasPoisonedAlready = vals.includes(existing.poisonedVal);
+          const nonMatching = vals.find((v) => v !== existing.poisonedVal);
+          if (nonMatching !== undefined) {
+            if (!hasPoisonedAlready) {
+              trackAndMutateInLedger(k, nonMatching, existing.attrs, 'Watchdog');
             }
+            writeCookieAcrossDomainScopes(k, existing.poisonedVal, existing.attrs);
           }
         }
       }
     }
 
-    // Restore any tracked cookies that were wiped from the jar
+    // Restore any tracked cookies that were completely wiped from the jar
     for (const [k, entry] of cookieLedger.entries()) {
-      if (!seenInJar.has(k) && entry.poisonedVal) {
-        rawCookieSet(`${k}=${entry.poisonedVal}${entry.attrs || '; path=/'}`);
+      if (!valuesByKey.has(k) && entry.poisonedVal) {
+        writeCookieAcrossDomainScopes(k, entry.poisonedVal, entry.attrs);
       }
     }
   }
@@ -893,33 +932,41 @@
             const raw = nativeCookieDesc.get.call(this);
             if (!config.enabled || !config.cookieMutator || !raw) return raw;
 
-            return raw
-              .split(';')
-              .map((pair) => {
-                const eqIdx = pair.indexOf('=');
-                if (eqIdx === -1) return pair;
-                const k = pair.slice(0, eqIdx).trim();
-                const v = pair.slice(eqIdx + 1).trim();
+            const seenKeys = new Set();
+            const outPairs = [];
 
-                // If already tracked in ledger, return the locked poisoned value without re-mutating!
-                if (cookieLedger.has(k)) {
-                  const entry = cookieLedger.get(k);
-                  if (v !== entry.poisonedVal) {
-                    // Site or HTTP header slipped a new version into the jar! Catch and re-lock it.
-                    trackAndMutateInLedger(k, v, entry.attrs, 'HTTP/Jar Drift');
-                    rawCookieSet(`${k}=${entry.poisonedVal}${entry.attrs || '; path=/'}`);
-                  }
-                  return `${k}=${entry.poisonedVal}`;
-                }
+            for (const pair of raw.split(';')) {
+              const eqIdx = pair.indexOf('=');
+              if (eqIdx === -1) {
+                outPairs.push(pair.trim());
+                continue;
+              }
+              const k = pair.slice(0, eqIdx).trim();
+              const v = pair.slice(eqIdx + 1).trim();
 
-                if (isTrackingKeyOrValue(k, v)) {
-                  const { poisonedVal } = trackAndMutateInLedger(k, v, '; path=/', 'Getter');
-                  rawCookieSet(`${k}=${poisonedVal}; path=/`);
-                  return `${k}=${poisonedVal}`;
+              if (seenKeys.has(k)) continue;
+              seenKeys.add(k);
+
+              // If already tracked in ledger, return the locked poisoned value without re-mutating!
+              if (cookieLedger.has(k)) {
+                const entry = cookieLedger.get(k);
+                if (v !== entry.poisonedVal) {
+                  writeCookieAcrossDomainScopes(k, entry.poisonedVal, entry.attrs);
                 }
-                return pair;
-              })
-              .join('; ');
+                outPairs.push(`${k}=${entry.poisonedVal}`);
+                continue;
+              }
+
+              if (isTrackingKeyOrValue(k, v)) {
+                const { poisonedVal } = trackAndMutateInLedger(k, v, '; path=/', 'Getter');
+                writeCookieAcrossDomainScopes(k, poisonedVal, '; path=/');
+                outPairs.push(`${k}=${poisonedVal}`);
+                continue;
+              }
+              outPairs.push(`${k}=${v}`);
+            }
+
+            return outPairs.join('; ');
           },
           set(val) {
             if (!config.enabled || !config.cookieMutator || typeof val !== 'string') {
@@ -936,7 +983,8 @@
               if (isTrackingKeyOrValue(k, v)) {
                 const { poisonedVal, isDeletion, restoredFromDelete, entry } = trackAndMutateInLedger(k, v, attrTail, 'JS Set');
                 if (restoredFromDelete && entry) {
-                  return nativeCookieDesc.set.call(this, `${k}=${entry.poisonedVal}${entry.attrs || '; path=/'}`);
+                  writeCookieAcrossDomainScopes(k, entry.poisonedVal, entry.attrs);
+                  return;
                 }
                 if (isDeletion) {
                   return nativeCookieDesc.set.call(this, val);
@@ -1025,16 +1073,23 @@
                 : computePoisonedValue(key, strVal);
             ourPoisonedValues.add(poisonedVal);
 
+            const now = Date.now();
             const version = prev ? prev.version + 1 : 1;
+            const lastRep = prev && prev.lastReportedAt ? prev.lastReportedAt : 0;
             storageLedger.set(key, {
               originalVal: strVal,
               poisonedVal,
-              version
+              version,
+              lastReportedAt: !prev || (prev.originalVal !== strVal && now - lastRep >= 30000) ? now : lastRep
             });
 
-            if (!prev || prev.originalVal !== strVal) {
-              emitEvent('COOKIE_MUTATED', {
+            if (!prev || (prev.originalVal !== strVal && now - lastRep >= 30000)) {
+              emitEvent(version > 1 ? 'COOKIE_REINJECTION_BLOCKED' : 'COOKIE_MUTATED', {
+                name: `storage.${key}`,
                 cookieName: `storage.${key}`,
+                poisoned: poisonedVal,
+                lockedValue: poisonedVal,
+                source: 'Storage',
                 originalPreview: strVal.slice(0, 18),
                 mutatedPreview: poisonedVal.slice(0, 18),
                 version,
@@ -1062,7 +1117,7 @@
           }
           const poisonedVal = computePoisonedValue(key, raw);
           ourPoisonedValues.add(poisonedVal);
-          storageLedger.set(key, { originalVal: raw, poisonedVal, version: 1 });
+          storageLedger.set(key, { originalVal: raw, poisonedVal, version: 1, lastReportedAt: Date.now() });
           origSetItem.call(this, key, poisonedVal);
           return poisonedVal;
         }
@@ -1070,13 +1125,15 @@
       };
     } catch (_) {}
 
-    // Initial scan & periodic self-healing watchdog
-    enforceCookieLedgerWatchdog();
-    setInterval(enforceCookieLedgerWatchdog, 1500);
-    window.addEventListener('focus', enforceCookieLedgerWatchdog);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) enforceCookieLedgerWatchdog();
-    });
+    // Initial scan & periodic self-healing watchdog (only run timer in top frame to avoid iframe multiplication)
+    if (window === window.top) {
+      enforceCookieLedgerWatchdog();
+      setInterval(enforceCookieLedgerWatchdog, 2500);
+      window.addEventListener('focus', enforceCookieLedgerWatchdog);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) enforceCookieLedgerWatchdog();
+      });
+    }
   }
 
   setupStorageGuard();

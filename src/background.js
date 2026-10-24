@@ -130,9 +130,34 @@ function upsertTabTrackedCookie(entry, name, poisonedValue, source, isReinjectio
   }
 }
 
-function recordGuardianEvent(tabId, eventType, detail) {
+function recordGuardianEvent(tabId, eventType, detail, senderUrl) {
   const entry = getOrCreateTabEntry(tabId);
   const d = detail || {};
+
+  // Sync JS-world poisoned values into recentlyMutatedCookieValues & httpCookieLedger
+  // so chrome.cookies.onChanged never fights page-hook.js!
+  if (d.name && (d.poisoned || d.lockedValue)) {
+    const val = d.poisoned || d.lockedValue;
+    recentlyMutatedCookieValues.add(`*|${d.name}|${val}`);
+    if (senderUrl) {
+      try {
+        const host = normalizeDomain(new URL(senderUrl).hostname);
+        if (host) {
+          const ledgerKey = `${host}|${d.name}`;
+          httpCookieLedger.set(ledgerKey, {
+            name: d.name,
+            domain: host,
+            canonicalFamily: canonicalCookieFamily(d.name),
+            originalValue: d.originalPreview || '',
+            poisonedValue: val,
+            coreFakeId: null,
+            reInjectionsBlocked: 0,
+            updatedAt: Date.now()
+          });
+        }
+      } catch (_) {}
+    }
+  }
 
   if (eventType === 'CMP_DETECTED') {
     entry.wallsDefeated++;
@@ -263,13 +288,16 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
   const cookie = changeInfo.cookie;
   if (!cookie || !cookie.name || SAFE_COOKIE_NAMES.test(cookie.name)) return;
 
+  // IMPORTANT: Non-HttpOnly cookies are ALREADY intercepted, mutated, and guarded
+  // by page-hook.js in the page context. Only auto-mutate HttpOnly cookies here
+  // so background.js and page-hook.js never fight each other in a ping-pong loop!
+  if (!cookie.httpOnly) return;
+
   const cleanDomain = normalizeDomain(cookie.domain);
   const ledgerKey = `${cleanDomain}|${cookie.name}`;
   const familyKey = `${cleanDomain}|${canonicalCookieFamily(cookie.name)}`;
   const existingEntry = httpCookieLedger.get(ledgerKey) || httpFamilyLedger.get(familyKey);
 
-  // If a tracked cookie was explicitly deleted by the site/server (not by our own overwrite),
-  // keep it in the ledger so if the site immediately re-injects it or bumps its version, we catch it!
   if (changeInfo.removed) {
     if (existingEntry && changeInfo.cause === 'explicit') {
       existingEntry.wasDeletedBySite = true;
@@ -282,7 +310,7 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
   if (!isKnownTracker) return;
 
   const sig = `${cookie.domain}|${cookie.name}|${cookie.value}`;
-  if (recentlyMutatedCookieValues.has(sig)) return;
+  if (recentlyMutatedCookieValues.has(sig) || recentlyMutatedCookieValues.has(`*|${cookie.name}|${cookie.value}`)) return;
   if (existingEntry && cookie.value === existingEntry.poisonedValue) return;
 
   const isReinjectionOrVersionBump = Boolean(existingEntry);
@@ -429,7 +457,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'LOG_GUARDIAN_EVENT') {
     const tabId = sender && sender.tab ? sender.tab.id : null;
     if (tabId) {
-      recordGuardianEvent(tabId, msg.eventType, msg.detail || {});
+      recordGuardianEvent(tabId, msg.eventType, msg.detail || {}, sender.tab.url || '');
     }
     sendResponse({ ok: true });
     return true;
