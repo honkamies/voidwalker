@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icons/logo.png" width="190" alt="Voidwalker Logo" />
+</p>
+
 # 🛡️ Voidwalker
 
 Walk through "Allow Cookies or Pay" walls leaving only a ghost. Spoofs consent, locks tracking cookies to fake personas, and poisons ad-tech telemetry in real time.
