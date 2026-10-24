@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en" class="sp-message-open">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Surveillance News &mdash; "Allow Cookies or Pay" Test Lab</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: #f8fafc;
+      color: #0f172a;
+      line-height: 1.65;
+    }
+    header {
+      background: #0f172a;
+      color: #fff;
+      padding: 20px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { margin: 0; font-size: 24px; }
+    .container {
+      max-width: 980px;
+      margin: 28px auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 24px;
+    }
+    article {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 28px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    article h1 { font-size: 28px; margin-top: 0; }
+    .headlines-box {
+      margin-top: 24px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 16px;
+    }
+    .panel {
+      background: #0f172a;
+      color: #f1f5f9;
+      border-radius: 12px;
+      padding: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+    }
+    .panel h3 {
+      margin-top: 0;
+      color: #38bdf8;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .probe-box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11.5px;
+      word-break: break-all;
+    }
+    .probe-label {
+      color: #94a3b8;
+      font-size: 10.5px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    button.test-btn {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: none;
+      border-radius: 8px;
+      background: #10b981;
+      color: #052e16;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.test-btn.secondary {
+      background: #f59e0b;
+      color: #451a03;
+    }
+    /* Simulated Sourcepoint / hs.fi "Allow Cookies or Pay" Modal */
+    #sp_message_container_test {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(6px);
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pay-or-okay-modal {
+      background: #fff;
+      color: #0f172a;
+      max-width: 520px;
+      padding: 32px;
+      border-radius: 14px;
+      font-family: system-ui, sans-serif;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+    .pay-or-okay-modal h2 { margin-top: 0; }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .btn-accept {
+      flex: 1;
+      padding: 12px;
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-subscribe {
+      flex: 1;
+      padding: 12px;
+      background: #e2e8f0;
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body style="overflow: hidden;">
+
+  <!-- Simulated Sourcepoint / hs.fi "Pay or Okay" Consent Trap -->
+  <div id="sp_message_container_test" role="dialog" aria-modal="true">
+    <div class="pay-or-okay-modal">
+      <h2>Ev&auml;steet tai tilaus / Allow Cookies or Pay</h2>
+      <p>To continue reading our news for free, you must allow us and our 142 ad-tech partners to track your browsing across the web. Otherwise, purchase a monthly subscription.</p>
+      <div class="modal-actions">
+        <button class="btn-accept sp_choice_type_11" title="Hyv&auml;ksy kaikki" id="acceptWallBtn">
+          Hyv&auml;ksy kaikki
+        </button>
+        <button class="btn-subscribe">
+          Tilaa (17,90 &euro;/kk)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <h1>&#128240; Daily Surveillance News (Test Lab)</h1>
+    <div id="wallStatusBadge" style="background:#ef4444;padding:6px 12px;border-radius:6px;font-family:sans-serif;font-size:13px;font-weight:700;">
+      &#128274; LOCKED BY COOKIE WALL
+    </div>
+  </header>
+
+  <div class="container">
+    <main>
+      <article>
+        <h1>Major Media Conglomerates Deploy "Pay or Okay" Consent Walls Across Europe</h1>
+        <p><strong>HELSINKI</strong> &mdash; News portals across Europe have increasingly adopted "Consent or Pay" walls powered by IAB Transparency and Consent Framework (TCF v2.2) scripts such as Sourcepoint, forcing readers to choose between surrendering personal behavioral profiles or paying a subscription fee.</p>
+        <p>When a visitor clicks "Accept All", dozens of tracking cookies &mdash; such as <code>consentUUID</code>, <code>_ga</code>, <code>_fbp</code>, and Adobe Experience Cloud IDs (<code>s_ecid</code>) &mdash; are written to the browser to link reading habits across sessions and partner sites.</p>
+        <p>With <strong>Voidwalker</strong> active, the extension automatically satisfies the consent wall in milliseconds across all character encodings, unlocks page scrolling, and immediately mutates and follows every tracking identifier in a stateful ledger while poisoning outgoing analytics beacons.</p>
+
+        <div class="headlines-box">
+          <h2>Latest Breaking Headlines</h2>
+          <ul>
+            <li><a href="#news-1"><h2>Privacy Regulators Scrutinize Behavioral Tracking Behind Cookie Walls</h2></a></li>
+            <li><a href="#news-2"><h2>How Stateful Cookie Ledgers Defeat Re-Injection and Version Bumps</h2></a></li>
+            <li><a href="#news-3"><h2>Browser Fingerprinting via Canvas 2D and WebGL Rendered Useless by Noise Injection</h2></a></li>
+          </ul>
+        </div>
+      </article>
+    </main>
+
+    <!-- Live Tracker Inspection Panel (Shows what the site thinks it got!) -->
+    <aside class="panel">
+      <h3>&#128300; What This "Evil Site" Sees</h3>
+
+      <div class="probe-box">
+        <div class="probe-label">1. IAB TCF v2.2 (__tcfapi) Status</div>
+        <div id="probeTcf">Checking __tcfapi...</div>
+      </div>
+
+      <div class="probe-box">
+        <div class="probe-label">2. Tracking Cookie Identity Test</div>
+        <div id="probeCookie">Waiting to drop tracking cookies...</div>
+      </div>
+
+      <div class="probe-box">
+        <div class="probe-label">3. Cookie Re-Injection &amp; Version Bump Test</div>
+        <div id="probeReinject">Waiting for re-injection test...</div>
+      </div>
+
+      <div class="probe-box">
+        <div class="probe-label">4. Hardware &amp; GPU Fingerprint</div>
+        <div id="probeFingerprint">Reading WebGL &amp; Canvas...</div>
+      </div>
+
+      <button class="test-btn" id="btnRunTrackerSuite">
+        &#129514; Run Evil Tracker Suite Now
+      </button>
+      <button class="test-btn secondary" id="btnSimulateReinject">
+        &#9888;&#65039; Simulate Cookie Overwrite &amp; _v2 Bump
+      </button>
+    </aside>
+  </div>
+
+  <script>
+    const acceptWallBtn = document.getElementById('acceptWallBtn');
+    const wallModal = document.getElementById('sp_message_container_test');
+    const wallStatusBadge = document.getElementById('wallStatusBadge');
+
+    acceptWallBtn.addEventListener('click', () => {
+      wallModal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      wallStatusBadge.style.background = '#10b981';
+      wallStatusBadge.textContent = '\uD83D\uDD13 WALL UNLOCKED (FAKE CONSENT ACCEPTED)';
+      runEvilTrackers();
+    });
+
+    function parseCookieMap() {
+      const map = {};
+      (document.cookie || '').split(';').forEach((part) => {
+        const eq = part.indexOf('=');
+        if (eq > 0) {
+          map[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+        }
+      });
+      return map;
+    }
+
+    function runEvilTrackers() {
+      // 1. Query __tcfapi
+      if (typeof window.__tcfapi === 'function') {
+        window.__tcfapi('getTCData', 2, (tcData, success) => {
+          document.getElementById('probeTcf').textContent =
+            `Success: ${success} | Status: ${tcData.eventStatus} | Purpose 1-10: ${tcData.purpose && tcData.purpose.consents[1]}`;
+        });
+      }
+
+      // 2. Try to set known tracking cookies and read them back
+      const intendedUUID = '11111111-2222-4333-8444-555555555555';
+      const intendedGA = 'GA1.1.123456789.1700000000';
+      document.cookie = `consentUUID=${intendedUUID}; path=/`;
+      document.cookie = `_ga=${intendedGA}; path=/`;
+      localStorage.setItem('s_ecid', 'MCMID|01234567898765432101234567898765432100');
+
+      const cookiesAfterInit = parseCookieMap();
+      document.getElementById('probeCookie').innerHTML =
+        `<div>Site tried to set: <code>${intendedUUID.slice(0, 18)}...</code></div>` +
+        `<div style="color:#34d399;margin-top:4px;">Locked fake ID: <code>${cookiesAfterInit.consentUUID || document.cookie}</code></div>`;
+
+      // 3. Test Cookie Following (Overwrite + Version Bump)
+      simulateCookieReinjectionAttack();
+
+      // 4. Fire analytics telemetry via fetch & sendBeacon
+      try {
+        navigator.sendBeacon('https://www.google-analytics.com/g/collect?v=2&cid=123456789.1700000000&dl=' + encodeURIComponent(location.href));
+        fetch('https://sanoma.omtrdc.net/b/ss/tracker/1/JS-2.22.0?mcorgid=REAL_ORG&mid=REAL_USER_ID', {
+          method: 'POST',
+          body: JSON.stringify({ userId: intendedUUID, title: document.title, referrer: document.referrer })
+        }).catch(() => {});
+      } catch (_) {}
+
+      // 5. Read Canvas & WebGL Fingerprint
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 30;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(10, 5, 80, 20);
+        ctx.fillStyle = '#069';
+        ctx.fillText('TrackerFP_123', 12, 18);
+        const dataUrl = canvas.toDataURL();
+
+        const glCanvas = document.createElement('canvas');
+        const gl = glCanvas.getContext('webgl');
+        const renderer = gl ? gl.getParameter(37446) : 'N/A';
+
+        document.getElementById('probeFingerprint').innerHTML =
+          `<div>GPU: <code>${renderer}</code></div>` +
+          `<div>Cores: <code>${navigator.hardwareConcurrency}</code> | Canvas tail: <code>${dataUrl.slice(-20)}</code></div>`;
+      } catch (_) {}
+    }
+
+    function simulateCookieReinjectionAttack() {
+      const beforeMap = parseCookieMap();
+      const lockedBefore = beforeMap.consentUUID || '(none)';
+
+      // Evil tracker tries to:
+      // A) Delete consentUUID
+      document.cookie = 'consentUUID=; Max-Age=0; path=/';
+      // B) Re-inject a brand new real tracker UUID
+      const evilNewUUID = '99999999-8888-4777-8666-555555555555';
+      document.cookie = `consentUUID=${evilNewUUID}; path=/`;
+      // C) Inject a bumped cookie version consentUUID_v2 with the real tracker UUID
+      document.cookie = `consentUUID_v2=${evilNewUUID}; path=/`;
+
+      const afterMap = parseCookieMap();
+      const afterUUID = afterMap.consentUUID || '(missing)';
+      const afterV2 = afterMap.consentUUID_v2 || '(missing)';
+      const defeated = afterUUID === lockedBefore && afterV2 === lockedBefore && afterUUID !== evilNewUUID;
+
+      document.getElementById('probeReinject').innerHTML =
+        `<div>Site tried overwrite &amp; <code>_v2</code>: <code>${evilNewUUID.slice(0, 16)}...</code></div>` +
+        `<div style="color:${defeated ? '#34d399' : '#f87171'};margin-top:4px;">` +
+        `consentUUID: <code>${afterUUID.slice(0, 18)}...</code><br/>` +
+        `consentUUID_v2: <code>${afterV2.slice(0, 18)}...</code><br/>` +
+        `<strong>${defeated ? 'FOLLOWED & LOCKED (Re-injection defeated!)' : 'WARNING: Cookie drifted'}</strong></div>`;
+    }
+
+    document.getElementById('btnRunTrackerSuite').addEventListener('click', runEvilTrackers);
+    document.getElementById('btnSimulateReinject').addEventListener('click', simulateCookieReinjectionAttack);
+    setTimeout(runEvilTrackers, 500);
+  </script>
+</body>
+</html>
