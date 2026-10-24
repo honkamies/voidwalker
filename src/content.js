@@ -23,16 +23,38 @@
 
   function pushConfigToPage(cfg) {
     try {
-      window.dispatchEvent(
-        new CustomEvent(EVT_TO_MAIN, {
-          detail: {
-            type: 'CONFIG',
-            config: cfg
-          }
-        })
+      window.postMessage(
+        {
+          __vw_cmd__: true,
+          type: 'CONFIG',
+          config: cfg
+        },
+        '*'
       );
     } catch (_) {}
   }
+
+  // Listen for telemetry/sniffer events from MAIN world (page-hook.js)
+  const seenEventSigs = new Set();
+  window.addEventListener('message', (event) => {
+    if (event.source !== window || !event.data || !event.data.__cookieGuardianEvent) return;
+    const data = event.data;
+    const sig = `${data.type}|${data.detail && data.detail.summary}|${data.detail && data.detail.timestamp}`;
+    if (seenEventSigs.has(sig)) return;
+    seenEventSigs.add(sig);
+    try {
+      chrome.runtime.sendMessage({
+        action: 'LOG_GUARDIAN_EVENT',
+        eventType: data.type,
+        detail: data.detail
+      });
+    } catch (_) {}
+  });
+
+  // Immediately signal BRIDGE_READY so page-hook.js flushes any document_start events
+  try {
+    window.postMessage({ __vw_cmd__: true, type: 'BRIDGE_READY' }, '*');
+  } catch (_) {}
 
   // Load initial config and sync to MAIN world
   try {
@@ -48,32 +70,6 @@
     });
   } catch (_) {}
 
-  // Listen for stealth CustomEvent telemetry/sniffer events from MAIN world (page-hook.js)
-  const seenEventSigs = new Set();
-  window.addEventListener(EVT_TO_CONTENT, (event) => {
-    const data = event && event.detail;
-    if (!data || !data.__cookieGuardianEvent) return;
-    const sig = `${data.type}|${data.detail && data.detail.summary}|${data.detail && data.detail.timestamp}`;
-    if (seenEventSigs.has(sig)) return;
-    seenEventSigs.add(sig);
-    try {
-      chrome.runtime.sendMessage({
-        action: 'LOG_GUARDIAN_EVENT',
-        eventType: data.type,
-        detail: data.detail
-      });
-    } catch (_) {}
-  });
-
-  // Immediately signal BRIDGE_READY so page-hook.js flushes any document_start events
-  try {
-    window.dispatchEvent(
-      new CustomEvent(EVT_TO_MAIN, {
-        detail: { type: 'BRIDGE_READY' }
-      })
-    );
-  } catch (_) {}
-
   // Listen for commands from Popup / Background (only handle UI actions in top frame)
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (window !== window.top) return;
@@ -86,11 +82,7 @@
 
     if (msg.action === 'ROTATE_PERSONA') {
       try {
-        window.dispatchEvent(
-          new CustomEvent(EVT_TO_MAIN, {
-            detail: { type: 'ROTATE_PERSONA' }
-          })
-        );
+        window.postMessage({ __vw_cmd__: true, type: 'ROTATE_PERSONA' }, '*');
       } catch (_) {}
       sendResponse({ ok: true });
       return true;

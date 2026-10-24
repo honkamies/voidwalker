@@ -203,8 +203,8 @@ function recordGuardianEvent(tabId, eventType, detail, senderUrl) {
 // ============================================================================
 // BROWSER-LEVEL HTTP COOKIE SNIFFER, STATEFUL LEDGER & FORMAT-PRESERVING MUTATOR
 // ============================================================================
-const SAFE_COOKIE_NAMES = /^(euconsent-v2|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|sp_tcfv2|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-|__Secure-|csrf|xsrf|auth|session|login|cart)/i;
-const TRACKER_COOKIE_NAMES = /^(_ga|_ga_[A-Z0-9]+|_gid|_gat|_fbp|_fbc|_gcl_au|_uetsid|_uetvid|consentUUID|consentUUID_[a-z0-9]+|consentDate|_sp_v\d+_uid|_sp_v\d+_p|_cb|_cb_svref|_chartbeat|_v__chartbeat|_pcid|_pctx|_pprv|cX_|FPID|FPLC|im_uid|s_ecid|AMCV_|AMCVS_|s_cc|s_sq|s_vi|demdex|IDE|muid|uuid2|anj|_ym_uid|hubspotutk|ajs_anonymous_id|criteo|cto_bundle|__gads|__gpi)/i;
+const SAFE_COOKIE_NAMES = /^(euconsent-v2|consentDate|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|sp_tcfv2|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-|__Secure-|csrf|xsrf|auth|session|login|cart)/i;
+const TRACKER_COOKIE_NAMES = /^(_ga|_ga_[A-Z0-9]+|_gid|_gat|_fbp|_fbc|_gcl_au|_uetsid|_uetvid|consentUUID|consentUUID_[a-z0-9]+|_sp_v\d+_uid|_sp_v\d+_p|_cb|_cb_svref|_chartbeat|_v__chartbeat|_pcid|_pctx|_pprv|cX_|FPID|FPLC|im_uid|s_ecid|AMCV_|AMCVS_|s_cc|s_sq|s_vi|demdex|IDE|muid|uuid2|anj|_ym_uid|hubspotutk|ajs_anonymous_id|criteo|cto_bundle|__gads|__gpi)/i;
 
 function canonicalCookieFamily(name) {
   if (!name) return '';
