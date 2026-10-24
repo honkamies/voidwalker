@@ -1,5 +1,7 @@
 # 🛡️ Voidwalker
 
+Walk through "Allow Cookies or Pay" walls leaving only a ghost. Spoofs consent, locks tracking cookies to fake personas, and poisons ad-tech telemetry in real time.
+
 > **Walk Through the Wall. Leave Only a Ghost.**  
 > Websites now hold the web hostage with *"Allow Cookies or Pay"* walls—so **Voidwalker** shows them compliance on the surface while feeding them a hollow phantom underneath.  
 > It automatically tells consent walls *"Yes, I accept everything"* across all character encodings to unlock the page in milliseconds, then immediately locks every tracking cookie to a rotating, format-preserving fake persona.  
