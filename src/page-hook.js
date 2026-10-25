@@ -587,11 +587,11 @@
 
   // Functional & consent-unlock cookies that MUST remain intact so walls stay unlocked & logins work
   const SAFE_KEY_PATTERNS =
-    /^(euconsent-v2|consentDate|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|sp_tcfv2|didomi_token|didomi_dcs|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-|__Secure-|csrf|xsrf|auth|session|login|cart|theme|lang|locale|cf_clearance|__cf_bm)/i;
+    /^(euconsent-v2|consentDate|sammio-init-time|test[_-]?0\.|__.*test__|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|_sp_local_state|_sp_non_keyed_local_state|sp_tcfv2|didomi_token|didomi_dcs|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-|__Secure-|csrf|xsrf|auth|session|login|cart|theme|lang|locale|cf_clearance|__cf_bm)/i;
 
-  // Tracker cookie name patterns (matches versioned suffixes like _ga_ABC123, _sp_v2_uid, consentUUID_v2, Chartbeat _cb, Cxense cX_, Piano _pcid, etc.)
+  // Tracker cookie name patterns (matches versioned suffixes like _ga_ABC123, _sp_v2_uid, consentUUID_v2, Sammio sammio-bsid, Chartbeat _cb, Cxense cX_, Piano _pcid, etc.)
   const TRACKER_KEY_PATTERNS =
-    /^(_ga($|_)|_gid($|_)|_gat($|_)|_gcl_|_fbp($|_)|_fbc($|_)|_uetsid|_uetvid|consentUUID|_sp_v\d+_uid|_sp_v\d+_p|_cb($|_)|_chartbeat|_v__chartbeat|_pcid|_pctx|_pprv|cX_|FPID|FPLC|im_uid|s_ecid|AMCV_|AMCVS_|s_cc$|s_sq$|s_vi|demdex|IDE$|muid|uuid2|anj$|_ym_|hubspotutk|ajs_anonymous_id|ajs_user_id|mp_.*_mixpanel|amplitude_id|_pin_unauth|_ttp|criteo|cto_|outbrain|taboola|lotame|panoramaId|__gads|__gpi|utag_main|_parsely|_cx_|permutive)/i;
+    /^(_ga($|_)|_gid($|_)|_gat($|_)|_gcl_|_fbp($|_)|_fbc($|_)|_uetsid|_uetvid|consentUUID|_sp_v\d+_uid|_sp_v\d+_p|_sp_user_consent_|sammio-bsid|@almamedia\/sammio-client|_cb($|_)|_chartbeat|_v__chartbeat|_pcid|_pctx|_pprv|cX_|FPID|FPLC|im_uid|s_ecid|AMCV_|AMCVS_|s_cc$|s_sq$|s_vi|demdex|IDE$|muid|uuid2|anj$|_ym_|hubspotutk|ajs_anonymous_id|ajs_user_id|mp_.*_mixpanel|amplitude_id|_pin_unauth|_ttp|criteo|cto_|outbrain|taboola|lotame|panoramaId|__gads|__gpi|utag_main|_parsely|_cx_|permutive)/i;
 
   /**
    * Canonical family name for version-bump detection.
@@ -655,13 +655,19 @@
 
   function isTrackingKeyOrValue(key, val) {
     if (!key || SAFE_KEY_PATTERNS.test(key)) return false;
+    // Ignore browser feature-detection probes like localStorage.setItem('test_0.123', 'test_0.123')
+    if (key === val && /^test/i.test(key)) return false;
+
+    const decoded = decodeCookieValSafe(val);
+    // Never scramble raw ISO-8601 calendar timestamps (e.g. 2026-10-25T11:00:39.822Z)
+    if (decoded && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(decoded)) return false;
+
     if (cookieLedger.has(key)) return true; // Once tracked in our ledger, we ALWAYS follow it!
     if (TRACKER_KEY_PATTERNS.test(key)) return true;
     const family = getCanonicalCookieFamily(key);
     if (familyLedger.has(family)) return true; // Version-bumped successor of a tracked cookie!
 
     // Heuristic: high-entropy random ID (UUID, hex hash, or long token)
-    const decoded = decodeCookieValSafe(val);
     if (decoded && decoded.length >= 16 && decoded.length <= 160) {
       const entropy = calculateShannonEntropy(decoded);
       if (entropy >= 3.6 && /^[a-zA-Z0-9_\-.:|%+]+$/.test(val)) {
@@ -692,9 +698,13 @@
     if (/^fb\.\d+\.\d+\.\d+/.test(rawVal)) {
       return FAKE_PERSONA.fbpId;
     }
-    // 4. Standard UUID v4 (e.g., Sourcepoint consentUUID on hs.fi)
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVal)) {
-      return FAKE_PERSONA.uuid;
+    // 4. Standard UUID v4 or UUID with suffix/JSON wrapper (e.g., consentUUID on hs.fi/il.fi or @almamedia/sammio-client)
+    if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(rawVal)) {
+      return rawVal.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, FAKE_PERSONA.uuid);
+    }
+    // Never corrupt JSON syntax if a JSON storage object does not contain a UUID yet
+    if (rawVal.startsWith('{') || rawVal.startsWith('[')) {
+      return rawVal;
     }
 
     // 5. Format-preserving character-class mutation seeded by FAKE_PERSONA.uuid + canonical key family
@@ -1210,7 +1220,7 @@
   // 3. STAGE 3: OUTGOING TELEMETRY & IN-MEMORY VARIABLE SCRUBBER
   // ============================================================================
   const TRACKER_URL_REGEX =
-    /google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|facebook\.com\/tr|connect\.facebook\.net|omtrdc\.net|2o7\.net|demdex\.net|adobedtm\.com|scorecardresearch\.com|chartbeat\.com|criteo\.com|criteo\.net|hotjar\.com|clarity\.ms|segment\.io|segment\.com|mixpanel\.com|amplitude\.com|bat\.bing\.com|analytics\.tiktok\.com|ads-twitter\.com|adnxs\.com|rubiconproject\.com|pubmatic\.com|smartadserver\.com|sanoma.*\/(analytics|track|telemetry|collector)|\/g\/collect|\/j\/collect|\/b\/ss\/|\/pixel|\/beacon|\/telemetry|\/track\b/i;
+    /google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|facebook\.com\/tr|connect\.facebook\.net|omtrdc\.net|2o7\.net|demdex\.net|adobedtm\.com|scorecardresearch\.com|chartbeat\.com|criteo\.com|criteo\.net|hotjar\.com|clarity\.ms|segment\.io|segment\.com|mixpanel\.com|amplitude\.com|bat\.bing\.com|analytics\.tiktok\.com|ads-twitter\.com|adnxs\.com|rubiconproject\.com|pubmatic\.com|smartadserver\.com|gravito\.net|fortune-cookie\.alma-amr\.net|userreport\.com|ebxcdn\.com|sanoma.*\/(analytics|track|telemetry|collector)|\/g\/collect|\/j\/collect|\/b\/ss\/|\/pixel|\/beacon|\/telemetry|\/track\b/i;
 
   function isTrackerEndpoint(urlStr) {
     if (!urlStr) return false;
