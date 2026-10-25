@@ -14,7 +14,10 @@
         <div class="shield-icon"><img src="../icons/icon128.png" alt="Voidwalker" style="width:36px;height:36px;border-radius:8px;display:block;" /></div>
         <div>
           <h1>Voidwalker</h1>
-          <div id="activeDomain" class="domain-pill">Scanning tab...</div>
+          <div class="domain-row">
+            <div id="activeDomain" class="domain-pill">Scanning tab...</div>
+            <button id="btnSitePause" class="site-pause-btn" title="Pause or resume Voidwalker on this specific website">Pause Site</button>
+          </div>
         </div>
       </div>
       <label class="switch" title="Master Enable/Disable">
@@ -87,8 +90,8 @@
 
         <label class="module-row">
           <div>
-            <div class="module-name">Stateful Cookie Mutator &amp; Follower</div>
-            <div class="module-desc">Locks fake IDs &amp; blocks re-injection / version bumps</div>
+            <div class="module-name">Stateful Cookie &amp; RAM Variable Scrubber</div>
+            <div class="module-desc">Locks fake IDs, blocks overwrites &amp; scrubs in-memory leaks</div>
           </div>
           <input type="checkbox" id="modCookie" checked />
         </label>
@@ -101,13 +104,60 @@
           <input type="checkbox" id="modTelemetry" checked />
         </label>
 
-        <label class="module-row">
-          <div>
-            <div class="module-name">Canvas &amp; GPU Fingerprint Spoofer</div>
-            <div class="module-desc">Randomizes Canvas 2D, WebGL GPU, &amp; screen metrics</div>
+        <div class="module-group">
+          <div class="module-row">
+            <div>
+              <div class="module-name-line">
+                <span class="module-name">Hardware Fingerprint Privacy Layer</span>
+                <button id="btnToggleFpDrawer" type="button" class="expand-btn" title="Configure individual hardware layers">Layers &#9662;</button>
+              </div>
+              <div class="module-desc">0.00ms randomized virtual hardware shield (6 surfaces)</div>
+            </div>
+            <input type="checkbox" id="modFingerprint" checked />
           </div>
-          <input type="checkbox" id="modFingerprint" checked />
-        </label>
+
+          <div id="fpSubDrawer" class="fp-subdrawer">
+            <label class="sub-row">
+              <div>
+                <div class="sub-name">Canvas 2D &amp; Font Sub-Pixel Jitter</div>
+                <div class="sub-desc">Turn off only for web pixel/photo editors (e.g. Photopea)</div>
+              </div>
+              <input type="checkbox" id="modFpCanvas" checked />
+            </label>
+
+            <label class="sub-row">
+              <div>
+                <div class="sub-name">WebGL 1 &amp; 2 GPU Vendor/Renderer</div>
+                <div class="sub-desc">Turn off only for 3D benchmarks or cloud gaming</div>
+              </div>
+              <input type="checkbox" id="modFpWebGL" checked />
+            </label>
+
+            <label class="sub-row">
+              <div>
+                <div class="sub-name">AudioContext DSP Waveform Jitter</div>
+                <div class="sub-desc">Turn off only for browser music DAWs / audio mastering</div>
+              </div>
+              <input type="checkbox" id="modFpAudio" checked />
+            </label>
+
+            <label class="sub-row">
+              <div>
+                <div class="sub-name">Screen &amp; Display Geometry Cloaking</div>
+                <div class="sub-desc">Turn off if a web app sizes popups to physical monitor</div>
+              </div>
+              <input type="checkbox" id="modFpScreen" checked />
+            </label>
+
+            <label class="sub-row">
+              <div>
+                <div class="sub-name">CPU, RAM, Client Hints, Mic/Cam IDs &amp; Battery</div>
+                <div class="sub-desc">Turn off on Meet/Zoom/Teams to remember selected mic/cam</div>
+              </div>
+              <input type="checkbox" id="modFpHardware" checked />
+            </label>
+          </div>
+        </div>
 
         <label class="module-row">
           <div>

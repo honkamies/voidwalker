@@ -65,9 +65,51 @@ Instead of blocking scripts (which triggers anti-adblock walls and breaks page l
 | **1. "Pay or Okay" Consent Walls** | **Universal-Encoding Spoofer:** Intercepts `window.__tcfapi` (IAB TCF v2.2) and `window.__uspapi` to return a synthetic `"useractioncomplete"` full-consent payload, auto-triggers the accept button across UTF-8, ISO-8859-1, Windows-1252, and mojibake encodings, and strips CSS scroll locks (`overflow: hidden`) while strictly avoiding *"Subscribe / Pay"* buttons. |
 | **2. First-Party Tracking Cookies** | **Format-Preserving Mutation + Shannon Entropy Detection:** Leaves functional & consent-receipt cookies (`euconsent-v2`, `consentDate`, `PHPSESSID`, login/cart tokens) untouched so the wall stays unlocked, while mutating known tracker cookies (`consentUUID`, `_sp_v1_uid`, `_ga`, `_fbp`, `_cb`, `cX_P`, `_pcid`) AND unknown high-entropy tokens ($\text{Entropy} \ge 3.6$) into format-valid fake IDs. |
 | **3. Cookie Re-Injection & `_v2` Version Bumps** | **Stateful Shadow Cookie Ledger:** Every manipulated cookie is pinned (`Locked`) in an in-memory ledger across both host-only (`www.domain.com`) and parent-domain (`.domain.com`) scopes. If a page tries to overwrite a cookie, wipe-and-recreate it (`Max-Age=0`), or bump its version (`consentUUID_v2`), Voidwalker intercepts the write and forces the locked fake ID back into the jar. |
-| **4. Cloud Identity Graph & Beacon Syncing** | **Outgoing Telemetry Poisoner:** Hooks `navigator.sendBeacon`, `window.fetch`, and `XMLHttpRequest` calls to analytics collectors and rewrites query parameters (`cid`, `uid`, `mid`, `sr`, `dl`, `dt`) and JSON bodies with decoy screen resolutions, fake referrers, and randomized interest topics. |
-| **5. Canvas, WebGL & Hardware Fingerprinting** | **Deterministic Per-Tab Noise Injection:** Injects sub-pixel noise into HTML5 Canvas 2D (`toDataURL`, `getImageData`) and spoofs WebGL GPU vendor/renderer strings (`getParameter(37445/37446)`), CPU core counts, and device memory so every tab looks like a completely different physical machine. |
-| **6. Behavioral Ad Profiling (`dataLayer`)** | **Background Chaff Generator:** Periodically injects contradictory commercial interest signals (e.g., *industrial hydraulic excavators*, *alpine goat cheese fermentation*, *enterprise mainframe COBOL*) into `window.dataLayer` to poison behavioral ad segments. |
+| **4. In-Memory JS Variable Leaks (`0.00ms` Window)** | **Ledger-Linked Outgoing Network Scrubber:** If a script generates `const id = "real-uuid"` in RAM, writes `document.cookie = "consentUUID=" + id` (which Voidwalker mutates in the jar), and immediately fires `fetch(".../collect?tok=" + id)` using its local RAM variable, Voidwalker scans every outgoing `fetch`, `XHR`, and `sendBeacon` URL and body against the Cookie & Storage Ledgers and swaps `real-uuid` with the locked fake ID before the packet leaves the browser. |
+| **5. Cloud Identity Graph & Beacon Syncing** | **Outgoing Telemetry Poisoner:** Hooks `navigator.sendBeacon`, `window.fetch`, and `XMLHttpRequest` calls to analytics collectors and rewrites query parameters (`cid`, `uid`, `mid`, `sr`, `dl`, `dt`) and JSON bodies with decoy screen resolutions, fake referrers, and randomized interest topics. |
+| **6. Canvas, WebGL 1/2, Audio & Hardware Fingerprinting** | **6-Surface Randomized Hardware Privacy Layer (`0.00ms`):** Intercepts Canvas 2D (`toDataURL`, `toBlob`, `getImageData`), Font `measureText`, WebGL 1 & 2 GPU queries, `AudioBuffer` DSP waveforms, `window.screen` geometry, High-Entropy UA Client Hints, `enumerateDevices` USB/peripheral hashes, and `navigator.getBattery()`. |
+| **7. Behavioral Ad Profiling (`dataLayer`)** | **Background Chaff Generator:** Periodically injects contradictory commercial interest signals (e.g., *industrial hydraulic excavators*, *alpine goat cheese fermentation*, *enterprise mainframe COBOL*) into `window.dataLayer` to poison behavioral ad segments. |
+
+---
+
+## ⚡ Zero-Millisecond (`0.00ms`) Interception & Closing the "In-Memory Variable" Trick
+
+Because [`src/page-hook.js`](src/page-hook.js) is injected with `"run_at": "document_start"` in `"world": "MAIN"`, Voidwalker overrides `Object.defineProperty(document, 'cookie', ...)` and `Storage.prototype` **before the HTML parser even reads the `<head>` tag**.
+* **Zero Cookie Jar Exposure (`0.00ms`):** When a tracker executes `document.cookie = "consentUUID=15a4405b-..."`, the real value is intercepted in RAM and replaced with a fake persona ID before Chrome's native C++ cookie engine is ever called. The original tracking ID never exists in the browser's cookie store even for a microsecond.
+* **Closing the Local RAM Variable Loophole:** Some tracking scripts generate a tracking ID in a local JavaScript variable (`const myId = "15a4405b-..."`), assign it to `document.cookie`, and 1ms later transmit `fetch("/collect?custom_param=" + myId)` directly from the local `myId` variable in RAM rather than reading `document.cookie` back. Voidwalker's [`scrubLedgerValuesFromString()`](src/page-hook.js) links the **Followed Cookie & Storage Ledgers** directly into `window.fetch`, `XMLHttpRequest`, and `navigator.sendBeacon`: any raw string (or URL-encoded string) that a script attempted to write to a cookie or `localStorage` is automatically hunted down inside outgoing URLs and request payloads and replaced with the locked fake ID in flight.
+
+---
+
+## 🖥️ The 6-Surface Randomized Hardware Privacy Layer
+
+Webpages cannot access your physical CPU, GPU, sound card, or monitor directly—they must query browser JavaScript APIs. Voidwalker sits between the webpage and those APIs at `0.00ms`, presenting a **randomized virtual hardware machine** on every page load across 6 distinct fingerprinting surfaces:
+
+1. **Canvas 2D & Sub-Pixel Font Rendering (`fpCanvas`)**
+   * Hooks `HTMLCanvasElement.prototype.toDataURL`, `toBlob`, and `CanvasRenderingContext2D.prototype.getImageData` to inject deterministic per-session pixel noise (`canvasNoiseSeed`), and wraps `measureText()` with a Proxy that adds microscopic (`~0.00015px`) sub-pixel width jitter so OS font-rendering hashes change on every visit without visibly altering text layout.
+2. **WebGL 1 & WebGL 2 Graphics Card Cloaking (`fpWebGL`)**
+   * Hooks `getParameter(37445)` (`UNMASKED_VENDOR_WEBGL`) and `getParameter(37446)` (`UNMASKED_RENDERER_WEBGL`) on **both** `WebGLRenderingContext` (WebGL 1) and `WebGL2RenderingContext` (WebGL 2), rotating between synthetic GPU profiles (*NVIDIA GeForce RTX 3060*, *Intel Iris Xe*, *AMD Radeon RX 6700 XT*, and *Apple M2*).
+3. **AudioContext / OfflineAudioContext DSP Waveform Jitter (`fpAudio`)**
+   * Hooks `AudioBuffer.prototype.getChannelData` and `AnalyserNode.prototype.getFloatFrequencyData` to inject imperceptible (`1e-7`) floating-point noise across audio oscillator buffers. This defeats `OfflineAudioContext` sound-card/FPU fingerprinting while remaining 100% inaudible during media playback.
+4. **Monitor & Display Geometry Cloaking (`fpScreen`)**
+   * Overrides `Screen.prototype` getters (`width`, `height`, `availWidth`, `availHeight`, `colorDepth`, `pixelDepth`) to report randomized standard monitor dimensions (`1920x1080`, `2560x1440`, `1536x864`, `1440x900`, etc.) matching the active fake persona, without affecting CSS `@media` responsive layouts (which rely on `window.innerWidth`).
+5. **CPU Cores, System RAM & High-Entropy Client Hints (`fpHardware`)**
+   * Spoofs `navigator.hardwareConcurrency` (`4`, `8`, `12`, or `16` cores), `navigator.deviceMemory` (`4`, `8`, `16`, or `32` GB), and intercepts Chrome's `navigator.userAgentData.getHighEntropyValues()` to return randomized OS build versions and architectures (`x86` / `arm`).
+6. **Hardware Peripheral IDs & Battery Status (`fpHardware`)**
+   * Hooks `navigator.mediaDevices.enumerateDevices()` to salt and randomize hardware `deviceId` and `groupId` hashes (preventing trackers from fingerprinting how many webcams/microphones are plugged into your PC), and intercepts `navigator.getBattery()` to return a decoy battery state instead of your real battery charge level and discharge rate.
+
+---
+
+## ⚙️ Granular Controls & When to Switch Specific Layers Off
+
+While all defense modules and hardware layers are enabled by default for maximum protection, Voidwalker includes **one-click per-site bypass** and **granular hardware sub-layer toggles** in the extension popup for specialized web applications:
+
+* **Pause Site (Per-Domain Whitelist Button):** Located right next to the active domain name in the popup header. Click **Pause Site** on trusted services (such as online banking, government ID portals, or corporate SSO) to completely bypass Voidwalker on that domain while keeping protection active everywhere else.
+* **Hardware Layers (`Layers ▾` Drawer):** Click **Layers ▾** next to *Hardware Fingerprint Privacy Layer* in the popup to individually toggle any of the 5 hardware sub-shields:
+  * **Canvas 2D & Font Sub-Pixel Jitter:** Switch off only on browser-based photo/pixel editors (e.g., *Photopea*) if you need 100% unmodified RGB eyedropper pixel exports.
+  * **WebGL 1 & 2 GPU Vendor/Renderer:** Switch off only on 3D hardware benchmarks or cloud-gaming portals that auto-tune graphics shaders based on your physical GPU model.
+  * **AudioContext DSP Waveform Jitter:** Switch off only on browser-based music DAWs or lossless audio mastering tools.
+  * **Screen & Display Geometry Cloaking:** Switch off if a multi-monitor web application sizes native popup windows using `window.screen`.
+  * **CPU, RAM, Client Hints, Mic/Cam IDs & Battery:** Switch off on browser video-conferencing apps (*Google Meet*, *Zoom*, *Microsoft Teams*) if you want the site to remember your preferred hardware microphone or webcam `deviceId` across browser restarts.
 
 ---
 
@@ -83,3 +125,4 @@ Open [`test-lab.html`](test-lab.html) in your browser to run a live simulation o
 1. What IAB TCF v2.2 status the site receives.
 2. What tracking IDs the site *tries* to set vs. the **Locked Fake IDs** Voidwalker forces into `document.cookie`.
 3. A live **Cookie Overwrite & `_v2` Version-Bump Attack Simulator** showing Voidwalker's Stateful Cookie Ledger defeating re-injection attempts in real time.
+

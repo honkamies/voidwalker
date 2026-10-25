@@ -8,7 +8,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modCookie = document.getElementById('modCookie');
   const modTelemetry = document.getElementById('modTelemetry');
   const modFingerprint = document.getElementById('modFingerprint');
+  const modFpCanvas = document.getElementById('modFpCanvas');
+  const modFpWebGL = document.getElementById('modFpWebGL');
+  const modFpAudio = document.getElementById('modFpAudio');
+  const modFpScreen = document.getElementById('modFpScreen');
+  const modFpHardware = document.getElementById('modFpHardware');
   const modChaff = document.getElementById('modChaff');
+
+  const btnToggleFpDrawer = document.getElementById('btnToggleFpDrawer');
+  const fpSubDrawer = document.getElementById('fpSubDrawer');
+  const btnSitePause = document.getElementById('btnSitePause');
 
   const activeDomainEl = document.getElementById('activeDomain');
   const detectedCmpText = document.getElementById('detectedCmpText');
@@ -28,8 +37,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnClearLog = document.getElementById('btnClearLog');
 
   let activeTab = null;
+  let activeHost = '';
+  let disabledDomains = [];
   let isLedgerExpanded = false;
   let isLogExpanded = false;
+  let isFpDrawerOpen = false;
   const openCookieDetails = new Set(); // Tracks which cookie rows the user clicked to inspect
 
   try {
@@ -40,10 +52,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (activeTab && activeTab.url) {
     try {
       const u = new URL(activeTab.url);
+      activeHost = (u.hostname || '').toLowerCase().replace(/^www\./, '');
       activeDomainEl.textContent = u.hostname || u.protocol;
     } catch (_) {
       activeDomainEl.textContent = 'Local / System Tab';
     }
+  }
+
+  if (btnToggleFpDrawer && fpSubDrawer) {
+    btnToggleFpDrawer.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isFpDrawerOpen = !isFpDrawerOpen;
+      fpSubDrawer.classList.toggle('open', isFpDrawerOpen);
+      btnToggleFpDrawer.textContent = isFpDrawerOpen ? 'Layers \u25B4' : 'Layers \u25BE';
+    });
+  }
+
+  function isCurrentSitePaused() {
+    if (!activeHost || !Array.isArray(disabledDomains)) return false;
+    return disabledDomains.some((d) => {
+      const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
+      return cleanD && (activeHost === cleanD || activeHost.endsWith('.' + cleanD));
+    });
+  }
+
+  function updateSitePauseUI() {
+    if (!btnSitePause) return;
+    if (!activeHost) {
+      btnSitePause.style.display = 'none';
+      return;
+    }
+    btnSitePause.style.display = 'inline-block';
+    const paused = isCurrentSitePaused();
+    btnSitePause.classList.toggle('paused', paused);
+    activeDomainEl.classList.toggle('paused', paused);
+    btnSitePause.textContent = paused ? 'Paused (Resume)' : 'Pause Site';
   }
 
   function toggleLedgerExpand(e) {
@@ -75,11 +119,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       modCookie.checked = Boolean(config.cookieMutator);
       modTelemetry.checked = Boolean(config.telemetryPoisoner);
       modFingerprint.checked = Boolean(config.fingerprintSpoofer);
+      if (modFpCanvas) modFpCanvas.checked = config.fpCanvas !== false;
+      if (modFpWebGL) modFpWebGL.checked = config.fpWebGL !== false;
+      if (modFpAudio) modFpAudio.checked = config.fpAudio !== false;
+      if (modFpScreen) modFpScreen.checked = config.fpScreen !== false;
+      if (modFpHardware) modFpHardware.checked = config.fpHardware !== false;
       modChaff.checked = Boolean(config.chaffGenerator);
+      disabledDomains = Array.isArray(config.disabledDomains) ? [...config.disabledDomains] : [];
+      updateSitePauseUI();
     }
 
     if (tabStats) {
-      detectedCmpText.textContent = tabStats.detectedCmp || 'Active & Monitoring';
+      detectedCmpText.textContent = isCurrentSitePaused()
+        ? 'Paused on this domain (Whitelisted)'
+        : tabStats.detectedCmp || 'Active & Monitoring';
       statWalls.textContent = tabStats.wallsDefeated || 0;
       const totalCookieActions = (tabStats.cookiesMutated || 0) + (tabStats.reInjectionsBlocked || 0);
       statCookies.textContent = totalCookieActions;
@@ -214,14 +267,51 @@ document.addEventListener('DOMContentLoaded', async () => {
       cookieMutator: modCookie.checked,
       telemetryPoisoner: modTelemetry.checked,
       fingerprintSpoofer: modFingerprint.checked,
-      chaffGenerator: modChaff.checked
+      fpCanvas: modFpCanvas ? modFpCanvas.checked : true,
+      fpWebGL: modFpWebGL ? modFpWebGL.checked : true,
+      fpAudio: modFpAudio ? modFpAudio.checked : true,
+      fpScreen: modFpScreen ? modFpScreen.checked : true,
+      fpHardware: modFpHardware ? modFpHardware.checked : true,
+      chaffGenerator: modChaff.checked,
+      disabledDomains
     };
     chrome.storage.local.set({ cgConfig: newConfig });
   }
 
-  [toggleMaster, modConsent, modCookie, modTelemetry, modFingerprint, modChaff].forEach((el) => {
-    el.addEventListener('change', saveConfig);
-  });
+  if (btnSitePause) {
+    btnSitePause.addEventListener('click', () => {
+      if (!activeHost) return;
+      if (isCurrentSitePaused()) {
+        disabledDomains = disabledDomains.filter((d) => {
+          const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
+          return cleanD !== activeHost && !activeHost.endsWith('.' + cleanD);
+        });
+      } else {
+        disabledDomains.push(activeHost);
+      }
+      updateSitePauseUI();
+      saveConfig();
+      refreshState();
+    });
+  }
+
+  [
+    toggleMaster,
+    modConsent,
+    modCookie,
+    modTelemetry,
+    modFingerprint,
+    modFpCanvas,
+    modFpWebGL,
+    modFpAudio,
+    modFpScreen,
+    modFpHardware,
+    modChaff
+  ]
+    .filter(Boolean)
+    .forEach((el) => {
+      el.addEventListener('change', saveConfig);
+    });
 
   btnRotatePoison.addEventListener('click', () => {
     if (!activeTab) return;

@@ -18,7 +18,13 @@
     cookieMutator: true,
     telemetryPoisoner: true,
     fingerprintSpoofer: true,
-    chaffGenerator: true
+    fpCanvas: true,
+    fpWebGL: true,
+    fpAudio: true,
+    fpScreen: true,
+    fpHardware: true,
+    chaffGenerator: true,
+    disabledDomains: []
   };
 
   function pushConfigToPage(cfg) {

@@ -14,10 +14,27 @@ const DEFAULT_CONFIG = {
   cookieMutator: true,
   telemetryPoisoner: true,
   fingerprintSpoofer: true,
-  chaffGenerator: true
+  fpCanvas: true,
+  fpWebGL: true,
+  fpAudio: true,
+  fpScreen: true,
+  fpHardware: true,
+  chaffGenerator: true,
+  disabledDomains: []
 };
 
 let currentConfig = { ...DEFAULT_CONFIG };
+
+function isDomainDisabled(domainStr) {
+  if (!domainStr || !Array.isArray(currentConfig.disabledDomains) || currentConfig.disabledDomains.length === 0) {
+    return false;
+  }
+  const cleanHost = String(domainStr).toLowerCase().replace(/^\.+/, '').replace(/^www\./, '');
+  return currentConfig.disabledDomains.some((d) => {
+    const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
+    return cleanD && (cleanHost === cleanD || cleanHost.endsWith('.' + cleanD));
+  });
+}
 
 // Per-tab stats: tabId -> { wallsDefeated, cookiesMutated, reInjectionsBlocked, telemetryPoisoned, fingerprintsSpoofed, chaffSent, detectedCmp, trackedCookies: {}, logs: [] }
 const tabStats = new Map();
@@ -294,6 +311,7 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
   if (!cookie.httpOnly) return;
 
   const cleanDomain = normalizeDomain(cookie.domain);
+  if (isDomainDisabled(cleanDomain)) return;
   const ledgerKey = `${cleanDomain}|${cookie.name}`;
   const familyKey = `${cleanDomain}|${canonicalCookieFamily(cookie.name)}`;
   const existingEntry = httpCookieLedger.get(ledgerKey) || httpFamilyLedger.get(familyKey);

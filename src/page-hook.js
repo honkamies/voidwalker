@@ -32,14 +32,42 @@
   const EVENT_TO_ISOLATED = '__cm_evt_bridge__';
   const EVENT_FROM_ISOLATED = '__cm_cfg_bridge__';
 
+  let rawMasterEnabled = true;
+
   const config = {
     enabled: true,
     consentSpoofer: true,
     cookieMutator: true,
     telemetryPoisoner: true,
     fingerprintSpoofer: true,
-    chaffGenerator: true
+    fpCanvas: true,
+    fpWebGL: true,
+    fpAudio: true,
+    fpScreen: true,
+    fpHardware: true,
+    chaffGenerator: true,
+    disabledDomains: []
   };
+
+  function isCurrentDomainDisabled() {
+    const host = (location.hostname || '').toLowerCase().replace(/^www\./, '');
+    if (!host || !Array.isArray(config.disabledDomains) || config.disabledDomains.length === 0) {
+      return false;
+    }
+    return config.disabledDomains.some((d) => {
+      const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
+      return cleanD && (host === cleanD || host.endsWith('.' + cleanD));
+    });
+  }
+
+  function applyIncomingConfig(incoming) {
+    if (!incoming || typeof incoming !== 'object') return;
+    if (typeof incoming.enabled === 'boolean') {
+      rawMasterEnabled = incoming.enabled;
+    }
+    Object.assign(config, incoming);
+    config.enabled = rawMasterEnabled && !isCurrentDomainDisabled();
+  }
 
   // Generate a disposable per-page-load fake persona
   const FAKE_PERSONA = generateFakePersona();
@@ -54,12 +82,12 @@
       });
 
     const screens = [
-      { w: 1920, h: 1080 },
-      { w: 2560, h: 1440 },
-      { w: 1536, h: 864 },
-      { w: 1440, h: 900 },
-      { w: 1680, h: 1050 },
-      { w: 1366, h: 768 }
+      { w: 1920, h: 1080, dpr: 1 },
+      { w: 2560, h: 1440, dpr: 1.25 },
+      { w: 1536, h: 864, dpr: 1.25 },
+      { w: 1440, h: 900, dpr: 2 },
+      { w: 1680, h: 1050, dpr: 1 },
+      { w: 1366, h: 768, dpr: 1 }
     ];
     const gpus = [
       { vendor: 'Google Inc. (NVIDIA)', renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)' },
@@ -67,6 +95,8 @@
       { vendor: 'Google Inc. (AMD)', renderer: 'ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11 vs_5_0 ps_5_0, D3D11)' },
       { vendor: 'Google Inc. (Apple)', renderer: 'ANGLE (Apple, Apple M2, OpenGL 4.1)' }
     ];
+    const osVersions = ['10.0.0', '13.0.0', '14.4.0', '15.0.0'];
+    const architectures = ['x86', 'arm'];
     const decoyTopics = [
       'industrial-hydraulic-excavators',
       'organic-beekeeping-supplies',
@@ -100,6 +130,12 @@
       cores: [4, 8, 12, 16][randInt(0, 3)],
       memory: [4, 8, 16, 32][randInt(0, 3)],
       canvasNoiseSeed: randInt(1, 254),
+      audioNoiseSeed: randInt(1, 99) * 1e-7,
+      fontJitterPx: (randInt(1, 9) - 5) * 0.00015,
+      batteryLevel: Number((randInt(62, 98) / 100).toFixed(2)),
+      platformVersion: osVersions[randInt(0, osVersions.length - 1)],
+      architecture: architectures[randInt(0, architectures.length - 1)],
+      mediaDeviceSalt: uuid().replace(/-/g, ''),
       topic: decoyTopics[randInt(0, decoyTopics.length - 1)],
       referrer: decoyReferrers[randInt(0, decoyReferrers.length - 1)]
     };
@@ -148,7 +184,7 @@
     if (!data.__vw_cmd__) return;
 
     if ((data.type === 'CONFIG' || data.type === 'CONFIG_UPDATE') && data.config) {
-      Object.assign(config, data.config);
+      applyIncomingConfig(data.config);
       flushEarlyEvents();
       if (config.enabled && config.cookieMutator) {
         enforceCookieLedgerWatchdog();
@@ -952,6 +988,8 @@
     }
   }
 
+  const storageLedger = new Map();
+
   function setupStorageGuard() {
     try {
       // 2A. Hook document.cookie getter & setter backed by the Stateful Cookie Shadow Ledger
@@ -1085,7 +1123,6 @@
       }
 
       // 2C. Hook localStorage & sessionStorage (getItem + setItem) with Ledger consistency
-      const storageLedger = new Map();
       const origSetItem = Storage.prototype.setItem;
       const origGetItem = Storage.prototype.getItem;
 
@@ -1169,7 +1206,7 @@
   setupStorageGuard();
 
   // ============================================================================
-  // 3. STAGE 3: OUTGOING TELEMETRY & ANALYTICS POISONER
+  // 3. STAGE 3: OUTGOING TELEMETRY & IN-MEMORY VARIABLE SCRUBBER
   // ============================================================================
   const TRACKER_URL_REGEX =
     /google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|facebook\.com\/tr|connect\.facebook\.net|omtrdc\.net|2o7\.net|demdex\.net|adobedtm\.com|scorecardresearch\.com|chartbeat\.com|criteo\.com|criteo\.net|hotjar\.com|clarity\.ms|segment\.io|segment\.com|mixpanel\.com|amplitude\.com|bat\.bing\.com|analytics\.tiktok\.com|ads-twitter\.com|adnxs\.com|rubiconproject\.com|pubmatic\.com|smartadserver\.com|sanoma.*\/(analytics|track|telemetry|collector)|\/g\/collect|\/j\/collect|\/b\/ss\/|\/pixel|\/beacon|\/telemetry|\/track\b/i;
@@ -1179,9 +1216,45 @@
     return TRACKER_URL_REGEX.test(String(urlStr));
   }
 
+  /**
+   * Closes the "In-Memory Variable" micro-window:
+   * If a script generates `const id = "15a4405b-..."` in RAM, sets `document.cookie = "consentUUID=" + id`
+   * (which we mutate in the jar to `fb38b71e-...`), and immediately fires `fetch(".../collect?tok=" + id)`
+   * using its local RAM variable `id`, this scrubber finds `15a4405b-...` in the URL or request body and
+   * swaps it with `fb38b71e-...` before the network packet ever leaves the browser.
+   */
+  function scrubLedgerValuesFromString(inputStr) {
+    if (!inputStr || typeof inputStr !== 'string' || !config.enabled || !config.cookieMutator) {
+      return inputStr;
+    }
+    let out = inputStr;
+    const replaceToken = (rawVal, poisonedVal) => {
+      if (!rawVal || !poisonedVal || typeof rawVal !== 'string' || rawVal.length < 8 || rawVal === poisonedVal) {
+        return;
+      }
+      if (out.includes(rawVal)) {
+        out = out.split(rawVal).join(poisonedVal);
+      }
+      const encRaw = encodeURIComponent(rawVal);
+      if (encRaw !== rawVal && out.includes(encRaw)) {
+        out = out.split(encRaw).join(encodeURIComponent(poisonedVal));
+      }
+    };
+
+    for (const entry of cookieLedger.values()) {
+      replaceToken(entry.originalFirstSeen, entry.poisonedVal);
+      replaceToken(entry.lastSiteAttemptedVal, entry.poisonedVal);
+    }
+    for (const entry of storageLedger.values()) {
+      replaceToken(entry.originalVal, entry.poisonedVal);
+    }
+    return out;
+  }
+
   function poisonUrlParams(urlStr) {
+    const scrubbedUrlStr = scrubLedgerValuesFromString(String(urlStr));
     try {
-      const url = new URL(urlStr, location.origin);
+      const url = new URL(scrubbedUrlStr, location.origin);
       const paramPoisonMap = {
         cid: FAKE_PERSONA.gaClientId,
         uid: FAKE_PERSONA.uuid,
@@ -1197,7 +1270,7 @@
         mid: FAKE_PERSONA.uuid.replace(/-/g, '')
       };
 
-      let mutatedCount = 0;
+      let mutatedCount = scrubbedUrlStr !== String(urlStr) ? 1 : 0;
       for (const [k, fakeVal] of Object.entries(paramPoisonMap)) {
         if (url.searchParams.has(k)) {
           url.searchParams.set(k, fakeVal);
@@ -1209,15 +1282,16 @@
       }
       return url.toString();
     } catch (_) {
-      return urlStr;
+      return scrubbedUrlStr;
     }
   }
 
   function poisonPayloadBody(body) {
     if (!body) return body;
     if (typeof body === 'string') {
+      const scrubbedBody = scrubLedgerValuesFromString(body);
       try {
-        const parsed = JSON.parse(body);
+        const parsed = JSON.parse(scrubbedBody);
         const poisonObj = (obj) => {
           if (!obj || typeof obj !== 'object') return;
           for (const k of Object.keys(obj)) {
@@ -1243,7 +1317,7 @@
         poisonObj(parsed);
         return JSON.stringify(parsed);
       } catch (_) {
-        return body + `&_cg_noise=${encodeURIComponent(FAKE_PERSONA.topic)}`;
+        return scrubbedBody + `&_cg_noise=${encodeURIComponent(FAKE_PERSONA.topic)}`;
       }
     }
     return body;
@@ -1271,7 +1345,9 @@
             return true;
           }
         }
-        return origSendBeacon(url, data);
+        const safeUrl = typeof url === 'string' ? scrubLedgerValuesFromString(url) : url;
+        const safeData = typeof data === 'string' ? scrubLedgerValuesFromString(data) : data;
+        return origSendBeacon(safeUrl, safeData);
       };
     }
 
@@ -1305,7 +1381,12 @@
             });
           });
         }
-        return origFetch(input, init).then((res) => {
+        const safeInput = typeof input === 'string' ? scrubLedgerValuesFromString(input) : input;
+        const safeInit =
+          init && typeof init.body === 'string'
+            ? { ...init, body: scrubLedgerValuesFromString(init.body) }
+            : init;
+        return origFetch(safeInput, safeInit).then((res) => {
           setTimeout(enforceCookieLedgerWatchdog, 20);
           return res;
         });
@@ -1322,7 +1403,8 @@
         const poisonedUrl = poisonUrlParams(url);
         return origOpen.call(this, method, poisonedUrl, ...rest);
       }
-      return origOpen.call(this, method, url, ...rest);
+      const safeUrl = typeof url === 'string' ? scrubLedgerValuesFromString(url) : url;
+      return origOpen.call(this, method, safeUrl, ...rest);
     };
 
     XMLHttpRequest.prototype.send = function (body) {
@@ -1343,67 +1425,305 @@
         });
         return origSend.call(this, poisonPayloadBody(body));
       }
-      return origSend.call(this, body);
+      const safeBody = typeof body === 'string' ? scrubLedgerValuesFromString(body) : body;
+      return origSend.call(this, safeBody);
     };
   }
 
   setupTelemetryPoisoner();
 
   // ============================================================================
-  // 4. STAGE 4: HARDWARE & CANVAS FINGERPRINT SPOOFER
+  // 4. STAGE 4: RANDOMIZED HARDWARE & FINGERPRINT PRIVACY LAYER (0.00ms)
   // ============================================================================
-  let fpReported = false;
-  function reportFingerprint(surface) {
-    if (fpReported) return;
-    fpReported = true;
+  const reportedFpSurfaces = new Set();
+  function reportFingerprint(surface, detailSummary) {
+    if (reportedFpSurfaces.has(surface) || reportedFpSurfaces.size >= 6) return;
+    reportedFpSurfaces.add(surface);
     emitEvent('FINGERPRINT_SPOOFED', {
       surface,
-      summary: `Spoofed ${surface} fingerprint (GPU: ${FAKE_PERSONA.gpu.vendor}, Screen: ${FAKE_PERSONA.screen.w}x${FAKE_PERSONA.screen.h})`
+      summary:
+        detailSummary ||
+        `Spoofed ${surface} hardware query (GPU: ${FAKE_PERSONA.gpu.vendor}, Screen: ${FAKE_PERSONA.screen.w}x${FAKE_PERSONA.screen.h})`
     });
   }
 
   function setupFingerprintSpoofer() {
+    const isFpLayerActive = (subFlag) =>
+      Boolean(config.enabled && config.fingerprintSpoofer && config[subFlag] !== false);
+
+    // ------------------------------------------------------------------------
+    // 4A. Canvas 2D (`toDataURL`, `toBlob`, `getImageData`) & Font `measureText`
+    // ------------------------------------------------------------------------
     try {
+      let inInternalCanvasRead = false;
+      const origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+      const origPutImageData = CanvasRenderingContext2D.prototype.putImageData;
       const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+      const origToBlob = HTMLCanvasElement.prototype.toBlob;
+      const origMeasureText = CanvasRenderingContext2D.prototype.measureText;
+
+      const injectCanvasPixelNoise = (canvasEl) => {
+        if (!canvasEl || canvasEl.width <= 0 || canvasEl.height <= 0) return;
+        const ctx = canvasEl.getContext('2d');
+        if (!ctx) return;
+        inInternalCanvasRead = true;
+        try {
+          const w = Math.min(4, canvasEl.width);
+          const h = Math.min(4, canvasEl.height);
+          const imgData = origGetImageData.call(ctx, 0, 0, w, h);
+          imgData.data[0] = (imgData.data[0] + FAKE_PERSONA.canvasNoiseSeed) % 256;
+          if (imgData.data.length > 4) {
+            imgData.data[4] = (imgData.data[4] + (FAKE_PERSONA.canvasNoiseSeed ^ 0x37)) % 256;
+          }
+          origPutImageData.call(ctx, imgData, 0, 0);
+        } catch (_) {
+        } finally {
+          inInternalCanvasRead = false;
+        }
+      };
+
       HTMLCanvasElement.prototype.toDataURL = function (...args) {
-        if (config.enabled && config.fingerprintSpoofer) {
-          try {
-            const ctx = this.getContext('2d');
-            if (ctx && this.width > 0 && this.height > 0) {
-              const imgData = ctx.getImageData(0, 0, Math.min(4, this.width), Math.min(4, this.height));
-              imgData.data[0] = (imgData.data[0] + FAKE_PERSONA.canvasNoiseSeed) % 256;
-              ctx.putImageData(imgData, 0, 0);
-              reportFingerprint('Canvas 2D');
-            }
-          } catch (_) {}
+        if (isFpLayerActive('fpCanvas')) {
+          injectCanvasPixelNoise(this);
+          reportFingerprint('Canvas 2D', `Randomized Canvas 2D toDataURL hash (seed #${FAKE_PERSONA.canvasNoiseSeed})`);
         }
         return origToDataURL.apply(this, args);
       };
 
-      const origGetParameter = WebGLRenderingContext.prototype.getParameter;
-      WebGLRenderingContext.prototype.getParameter = function (param) {
-        if (config.enabled && config.fingerprintSpoofer) {
-          if (param === 37445) {
-            reportFingerprint('WebGL GPU');
-            return FAKE_PERSONA.gpu.vendor;
+      if (origToBlob) {
+        HTMLCanvasElement.prototype.toBlob = function (...args) {
+          if (isFpLayerActive('fpCanvas')) {
+            injectCanvasPixelNoise(this);
+            reportFingerprint('Canvas Blob', `Randomized Canvas toBlob export (seed #${FAKE_PERSONA.canvasNoiseSeed})`);
           }
-          if (param === 37446) {
-            reportFingerprint('WebGL GPU');
-            return FAKE_PERSONA.gpu.renderer;
+          return origToBlob.apply(this, args);
+        };
+      }
+
+      if (origGetImageData) {
+        CanvasRenderingContext2D.prototype.getImageData = function (sx, sy, sw, sh) {
+          const imgData = origGetImageData.call(this, sx, sy, sw, sh);
+          if (!inInternalCanvasRead && isFpLayerActive('fpCanvas') && imgData && imgData.data && imgData.data.length >= 16) {
+            imgData.data[0] = (imgData.data[0] + FAKE_PERSONA.canvasNoiseSeed) % 256;
+            imgData.data[4] = (imgData.data[4] + ((FAKE_PERSONA.canvasNoiseSeed * 3) & 0xff)) % 256;
+            reportFingerprint('Canvas ImageData', `Randomized raw Canvas getImageData pixel buffer`);
           }
-        }
-        return origGetParameter.call(this, param);
+          return imgData;
+        };
+      }
+
+      if (origMeasureText) {
+        CanvasRenderingContext2D.prototype.measureText = function (text) {
+          const metrics = origMeasureText.call(this, text);
+          if (!isFpLayerActive('fpCanvas') || !metrics) return metrics;
+          return new Proxy(metrics, {
+            get(target, prop) {
+              if (prop === 'width') {
+                return target.width + FAKE_PERSONA.fontJitterPx;
+              }
+              const val = target[prop];
+              return typeof val === 'function' ? val.bind(target) : val;
+            }
+          });
+        };
+      }
+    } catch (_) {}
+
+    // ------------------------------------------------------------------------
+    // 4B. WebGL 1 & WebGL 2 GPU Vendor / Renderer Cloaking
+    // ------------------------------------------------------------------------
+    try {
+      const hookWebGLProto = (proto, label) => {
+        if (!proto || typeof proto.getParameter !== 'function') return;
+        const origGetParam = proto.getParameter;
+        proto.getParameter = function (param) {
+          if (isFpLayerActive('fpWebGL')) {
+            if (param === 37445) {
+              reportFingerprint(label, `Spoofed ${label} GPU Vendor \u2192 ${FAKE_PERSONA.gpu.vendor}`);
+              return FAKE_PERSONA.gpu.vendor;
+            }
+            if (param === 37446) {
+              reportFingerprint(label, `Spoofed ${label} GPU Renderer \u2192 ${FAKE_PERSONA.gpu.renderer.slice(0, 32)}...`);
+              return FAKE_PERSONA.gpu.renderer;
+            }
+          }
+          return origGetParam.call(this, param);
+        };
       };
 
+      if (typeof WebGLRenderingContext !== 'undefined') {
+        hookWebGLProto(WebGLRenderingContext.prototype, 'WebGL1 GPU');
+      }
+      if (typeof WebGL2RenderingContext !== 'undefined') {
+        hookWebGLProto(WebGL2RenderingContext.prototype, 'WebGL2 GPU');
+      }
+    } catch (_) {}
+
+    // ------------------------------------------------------------------------
+    // 4C. AudioContext / OfflineAudioContext DSP Waveform Jitter
+    // ------------------------------------------------------------------------
+    try {
+      const poisonedBuffers = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+      if (typeof AudioBuffer !== 'undefined' && AudioBuffer.prototype.getChannelData) {
+        const origGetChannelData = AudioBuffer.prototype.getChannelData;
+        AudioBuffer.prototype.getChannelData = function (channel) {
+          const data = origGetChannelData.call(this, channel);
+          if (isFpLayerActive('fpAudio') && data && data.length > 0) {
+            if (!poisonedBuffers || !poisonedBuffers.has(this)) {
+              if (poisonedBuffers) poisonedBuffers.add(this);
+              const step = Math.max(1, Math.floor(data.length / 64));
+              for (let i = 0; i < data.length; i += step) {
+                data[i] = data[i] + FAKE_PERSONA.audioNoiseSeed * ((i % 7) - 3);
+              }
+              reportFingerprint('AudioContext DSP', `Injected sub-audible DSP noise into AudioBuffer waveform`);
+            }
+          }
+          return data;
+        };
+      }
+
+      if (typeof AnalyserNode !== 'undefined' && AnalyserNode.prototype.getFloatFrequencyData) {
+        const origGetFloatFreq = AnalyserNode.prototype.getFloatFrequencyData;
+        AnalyserNode.prototype.getFloatFrequencyData = function (array) {
+          const res = origGetFloatFreq.call(this, array);
+          if (isFpLayerActive('fpAudio') && array && array.length > 0) {
+            for (let i = 0; i < array.length; i += 8) {
+              array[i] = array[i] + FAKE_PERSONA.audioNoiseSeed * 100;
+            }
+            reportFingerprint('Audio Analyser', `Randomized Audio AnalyserNode frequency spectrum`);
+          }
+          return res;
+        };
+      }
+    } catch (_) {}
+
+    // ------------------------------------------------------------------------
+    // 4D. Screen & Display Geometry Cloaking (window.screen & devicePixelRatio)
+    // ------------------------------------------------------------------------
+    try {
+      if (typeof Screen !== 'undefined' && Screen.prototype) {
+        const screenProps = {
+          width: () => FAKE_PERSONA.screen.w,
+          height: () => FAKE_PERSONA.screen.h,
+          availWidth: () => FAKE_PERSONA.screen.w,
+          availHeight: () => Math.max(400, FAKE_PERSONA.screen.h - 40),
+          colorDepth: () => 24,
+          pixelDepth: () => 24
+        };
+        for (const [prop, fakeGetter] of Object.entries(screenProps)) {
+          const origDesc = Object.getOwnPropertyDescriptor(Screen.prototype, prop);
+          if (origDesc && origDesc.get) {
+            Object.defineProperty(Screen.prototype, prop, {
+              configurable: true,
+              enumerable: true,
+              get() {
+                if (isFpLayerActive('fpScreen')) {
+                  return fakeGetter();
+                }
+                return origDesc.get.call(this);
+              }
+            });
+          }
+        }
+      }
+    } catch (_) {}
+
+    // ------------------------------------------------------------------------
+    // 4E. CPU, RAM, Client Hints, Media Peripherals & Battery Cloaking
+    // ------------------------------------------------------------------------
+    try {
+      const origHcDesc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'hardwareConcurrency');
       Object.defineProperty(navigator, 'hardwareConcurrency', {
         configurable: true,
-        get: () => (config.enabled && config.fingerprintSpoofer ? FAKE_PERSONA.cores : 8)
+        get: () =>
+          isFpLayerActive('fpHardware')
+            ? FAKE_PERSONA.cores
+            : origHcDesc && origHcDesc.get
+              ? origHcDesc.get.call(navigator)
+              : 8
       });
+
       if ('deviceMemory' in navigator) {
+        const origDmDesc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'deviceMemory');
         Object.defineProperty(navigator, 'deviceMemory', {
           configurable: true,
-          get: () => (config.enabled && config.fingerprintSpoofer ? FAKE_PERSONA.memory : 8)
+          get: () =>
+            isFpLayerActive('fpHardware')
+              ? FAKE_PERSONA.memory
+              : origDmDesc && origDmDesc.get
+                ? origDmDesc.get.call(navigator)
+                : 8
         });
+      }
+
+      // Chrome High-Entropy User-Agent Client Hints
+      if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === 'function') {
+        const origGetHighEntropy = navigator.userAgentData.getHighEntropyValues.bind(navigator.userAgentData);
+        navigator.userAgentData.getHighEntropyValues = async function (hints) {
+          const realVals = await origGetHighEntropy(hints);
+          if (!isFpLayerActive('fpHardware') || !realVals || typeof realVals !== 'object') {
+            return realVals;
+          }
+          const spoofed = { ...realVals };
+          if ('platformVersion' in spoofed) spoofed.platformVersion = FAKE_PERSONA.platformVersion;
+          if ('architecture' in spoofed) spoofed.architecture = FAKE_PERSONA.architecture;
+          if ('bitness' in spoofed) spoofed.bitness = '64';
+          if ('model' in spoofed) spoofed.model = '';
+          reportFingerprint('UA Client Hints', `Spoofed high-entropy CPU/OS Client Hints (${FAKE_PERSONA.architecture}, OS v${FAKE_PERSONA.platformVersion})`);
+          return spoofed;
+        };
+      }
+
+      // Battery Status API Cloaking
+      if (typeof navigator.getBattery === 'function') {
+        const origGetBattery = navigator.getBattery.bind(navigator);
+        navigator.getBattery = async function () {
+          if (!isFpLayerActive('fpHardware')) {
+            return origGetBattery();
+          }
+          reportFingerprint('Battery API', `Spoofed Battery API status (level: ${Math.round(FAKE_PERSONA.batteryLevel * 100)}%, charging: true)`);
+          return {
+            charging: true,
+            chargingTime: 0,
+            dischargingTime: Infinity,
+            level: FAKE_PERSONA.batteryLevel,
+            onchargingchange: null,
+            onchargingtimechange: null,
+            ondischargingtimechange: null,
+            onlevelchange: null,
+            addEventListener() {},
+            removeEventListener() {},
+            dispatchEvent() {
+              return true;
+            }
+          };
+        };
+      }
+
+      // Media Devices Enumeration Hardware ID Cloaking
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+        const origEnumerate = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+        navigator.mediaDevices.enumerateDevices = async function () {
+          const devices = await origEnumerate();
+          if (!isFpLayerActive('fpHardware') || !Array.isArray(devices)) {
+            return devices;
+          }
+          reportFingerprint('MediaDevices', `Randomized hardware peripheral deviceId/groupId hashes`);
+          return devices.map((d, idx) => ({
+            deviceId: d.deviceId === 'default' || d.deviceId === 'communications' ? d.deviceId : `${FAKE_PERSONA.mediaDeviceSalt}${idx}d`,
+            groupId: `${FAKE_PERSONA.mediaDeviceSalt}${idx}g`,
+            kind: d.kind,
+            label: d.label || '',
+            toJSON() {
+              return {
+                deviceId: this.deviceId,
+                groupId: this.groupId,
+                kind: this.kind,
+                label: this.label
+              };
+            }
+          }));
+        };
       }
     } catch (_) {}
   }
