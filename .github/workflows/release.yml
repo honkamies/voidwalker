@@ -25,7 +25,7 @@ jobs:
               base_manifest = json.load(f)
 
           version = base_manifest.get("version", "1.0.0")
-          include_items = ["README.md", "test-lab.html", "src", "popup", "icons"]
+          include_items = ["README.md", "CHANGELOG.md", "test-lab.html", "src", "popup", "icons"]
 
           chrome_manifest = dict(base_manifest)
           chrome_manifest["background"] = {"service_worker": "src/background.js"}
@@ -52,6 +52,49 @@ jobs:
           build_pkg("releases/voidwalker-firefox.zip", firefox_manifest)
           PY
 
+      - name: Extract Release Notes from CHANGELOG.md
+        run: |
+          python3 - << 'PY'
+          import re, os
+
+          tag = os.environ.get("GITHUB_REF_NAME", "")
+          version = tag.lstrip("v")
+
+          changelog_section = ""
+          if os.path.exists("CHANGELOG.md"):
+              with open("CHANGELOG.md", "r", encoding="utf-8") as f:
+                  content = f.read()
+              pattern = rf"##\s*\[?v?{re.escape(version)}\]?[^\n]*\n(.*?)(?=\n##\s*\[?v?\d|\Z)"
+              match = re.search(pattern, content, re.DOTALL)
+              if match:
+                  changelog_section = match.group(1).strip()
+
+          body = f"""## 🛡️ Voidwalker {tag}
+
+### 🆕 What's New in this Release
+{changelog_section if changelog_section else "Performance improvements and defense updates."}
+
+---
+
+### 📦 Which file should I download?
+* **Chrome, Brave, Edge, Vivaldi, Opera, Arc, Kiwi (Android), Lemur (Android), Orion (iOS/macOS):**
+  👉 Download **`voidwalker-{tag}.zip`** (or `voidwalker-chromium.zip`) below
+* **Firefox (Desktop & Android), Zen Browser, LibreWolf, Waterfox, Mullvad Browser:**
+  👉 Download **`voidwalker-firefox-{tag}.zip`** (or `voidwalker-firefox.zip`) below
+
+---
+
+### ✨ Core Privacy Architecture
+1. **Universal-Encoding Consent Wall Spoofer (`0.00ms`):** Fakes IAB TCF v2.2 (`__tcfapi`), Sourcepoint, OneTrust, Cookiebot, and Didomi consent across UTF-8, ISO-8859-1, Windows-1252, and mojibake encodings while removing scroll locks.
+2. **Stateful Shadow Cookie Ledger (`Locked`):** Mutates tracking cookies into format-preserving fake IDs across host-only and parent-domain scopes, blocking overwrites and version bumps.
+3. **In-Memory JS Variable Network Scrubber:** Replaces raw tracking IDs in outgoing `fetch()`, `XMLHttpRequest`, and `navigator.sendBeacon()` URLs and payloads before packets leave the browser.
+4. **6-Surface Randomized Hardware Privacy Layer (`0.00ms`):** Spoofs Canvas 2D, WebGL GPU vendor/renderer, `AudioContext` DSP waveforms, `window.screen` geometry, Client Hints, and battery status.
+5. **One-Click Site Exclusion (Whitelist):** Toggle domain exclusion right from the popup to preserve 100% native functionality on video/account-heavy services like YouTube.
+"""
+          with open("RELEASE_BODY.md", "w", encoding="utf-8") as f:
+              f.write(body)
+          PY
+
       - name: Create GitHub Release & Upload Packages
         uses: softprops/action-gh-release@v2
         with:
@@ -59,22 +102,5 @@ jobs:
           name: "🛡️ Voidwalker ${{ github.ref_name }} — Universal Anti-Tracking, Consent Spoofer & Hardware Privacy Layer"
           files: |
             releases/voidwalker-*.zip
-          body: |
-            ## 🛡️ Voidwalker ${{ github.ref_name }}
-
-            Walk through **"Allow Cookies or Pay"** walls leaving only a ghost.
-
-            ### 📦 Which file should I download?
-            * **Chrome, Brave, Edge, Vivaldi, Opera, Arc, Kiwi (Android), Lemur (Android), Orion (iOS/macOS):**
-              👉 Download **`voidwalker-${{ github.ref_name }}.zip`** (or `voidwalker-chromium.zip`) below
-            * **Firefox (Desktop & Android), Zen Browser, LibreWolf, Waterfox, Mullvad Browser:**
-              👉 Download **`voidwalker-firefox-${{ github.ref_name }}.zip`** (or `voidwalker-firefox.zip`) below
-
-            ---
-
-            ### ✨ Key Capabilities
-            1. **Universal-Encoding Consent Wall Spoofer (`0.00ms`):** Fakes IAB TCF v2.2 (`__tcfapi`), Sourcepoint, OneTrust, Cookiebot, and Didomi consent across UTF-8, ISO-8859-1, Windows-1252, and mojibake encodings while removing scroll locks.
-            2. **Stateful Shadow Cookie Ledger (`Locked`):** Mutates tracking cookies (`consentUUID`, `_sp_v1_uid`, `_ga`, `_fbp`, `_cb`, `cX_P`, `_pcid`, and high-entropy tokens >= 3.6 bits) into format-preserving fake IDs across host-only and parent-domain scopes, blocking overwrites, wipe-and-recreate cycles, and `_v2` version bumps.
-            3. **In-Memory JS Variable Network Scrubber:** Hunts down unmutated tracking IDs held in local JavaScript RAM variables across all outgoing `fetch()`, `XMLHttpRequest`, and `navigator.sendBeacon()` URLs and payloads, replacing them in flight with the locked fake ID.
-            4. **6-Surface Randomized Hardware Privacy Layer (`0.00ms`):** Spoofs Canvas 2D (`toDataURL`, `toBlob`, `getImageData`), Font `measureText` sub-pixel widths, WebGL 1 & 2 GPU vendor/renderer, `AudioContext` DSP waveforms, `window.screen` geometry, High-Entropy UA Client Hints, `enumerateDevices` peripheral hashes, and `navigator.getBattery()`.
-            5. **Granular Controls & Per-Site Pause:** One-click **Pause Site** domain whitelist button plus an expandable **Hardware Layers (`Layers ▾`)** drawer to toggle individual hardware sub-shields.
+          body_path: RELEASE_BODY.md
+          generate_release_notes: true
