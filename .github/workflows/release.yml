@@ -1,0 +1,81 @@
+name: Publish Voidwalker Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Package Chromium & Firefox Extension Bundles
+        run: |
+          python3 - << 'PY'
+          import zipfile, os, json
+
+          with open("manifest.json", "r", encoding="utf-8") as f:
+              base_manifest = json.load(f)
+
+          version = base_manifest.get("version", "1.0.0")
+          include_items = ["README.md", "test-lab.html", "src", "popup", "icons"]
+
+          chrome_manifest = dict(base_manifest)
+          chrome_manifest["background"] = {"service_worker": "src/background.js"}
+
+          firefox_manifest = dict(base_manifest)
+          firefox_manifest["background"] = {"scripts": ["src/background.js"]}
+
+          def build_pkg(zip_path, manifest_obj):
+              os.makedirs(os.path.dirname(zip_path), exist_ok=True)
+              with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                  zf.writestr("manifest.json", json.dumps(manifest_obj, indent=2) + "\n")
+                  for item in include_items:
+                      if os.path.isfile(item):
+                          zf.write(item, item)
+                      elif os.path.isdir(item):
+                          for root, _, files in os.walk(item):
+                              for fn in files:
+                                  fp = os.path.join(root, fn)
+                                  zf.write(fp, fp)
+
+          build_pkg(f"releases/voidwalker-v{version}.zip", chrome_manifest)
+          build_pkg(f"releases/voidwalker-firefox-v{version}.zip", firefox_manifest)
+          build_pkg("releases/voidwalker-chromium.zip", chrome_manifest)
+          build_pkg("releases/voidwalker-firefox.zip", firefox_manifest)
+          PY
+
+      - name: Create GitHub Release & Upload Packages
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "🛡️ Voidwalker ${{ github.ref_name }} — Universal Anti-Tracking, Consent Spoofer & Hardware Privacy Layer"
+          files: |
+            releases/voidwalker-*.zip
+          body: |
+            ## 🛡️ Voidwalker ${{ github.ref_name }}
+
+            Walk through **"Allow Cookies or Pay"** walls leaving only a ghost.
+
+            ### 📦 Which file should I download?
+            * **Chrome, Brave, Edge, Vivaldi, Opera, Arc, Kiwi (Android), Lemur (Android), Orion (iOS/macOS):**
+              👉 Download **`voidwalker-v1.0.0.zip`** (or `voidwalker-chromium.zip`) below
+            * **Firefox (Desktop & Android), Zen Browser, LibreWolf, Waterfox, Mullvad Browser:**
+              👉 Download **`voidwalker-firefox-v1.0.0.zip`** (or `voidwalker-firefox.zip`) below
+
+            ---
+
+            ### ✨ Key Capabilities
+            1. **Universal-Encoding Consent Wall Spoofer (`0.00ms`):** Fakes IAB TCF v2.2 (`__tcfapi`), Sourcepoint, OneTrust, Cookiebot, and Didomi consent across UTF-8, ISO-8859-1, Windows-1252, and mojibake encodings while removing scroll locks.
+            2. **Stateful Shadow Cookie Ledger (`Locked`):** Mutates tracking cookies (`consentUUID`, `_sp_v1_uid`, `_ga`, `_fbp`, `_cb`, `cX_P`, `_pcid`, and high-entropy tokens >= 3.6 bits) into format-preserving fake IDs across host-only and parent-domain scopes, blocking overwrites, wipe-and-recreate cycles, and `_v2` version bumps.
+            3. **In-Memory JS Variable Network Scrubber:** Hunts down unmutated tracking IDs held in local JavaScript RAM variables across all outgoing `fetch()`, `XMLHttpRequest`, and `navigator.sendBeacon()` URLs and payloads, replacing them in flight with the locked fake ID.
+            4. **6-Surface Randomized Hardware Privacy Layer (`0.00ms`):** Spoofs Canvas 2D (`toDataURL`, `toBlob`, `getImageData`), Font `measureText` sub-pixel widths, WebGL 1 & 2 GPU vendor/renderer, `AudioContext` DSP waveforms, `window.screen` geometry, High-Entropy UA Client Hints, `enumerateDevices` peripheral hashes, and `navigator.getBattery()`.
+            5. **Granular Controls & Per-Site Pause:** One-click **Pause Site** domain whitelist button plus an expandable **Hardware Layers (`Layers ▾`)** drawer to toggle individual hardware sub-shields.
+            6. **Built-in Clean News Reader View:** Extracts distraction-free article text and headlines from JSON-LD, Next.js `__NEXT_DATA__`, and `<article>` tags.
