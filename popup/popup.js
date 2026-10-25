@@ -17,7 +17,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const btnToggleFpDrawer = document.getElementById('btnToggleFpDrawer');
   const fpSubDrawer = document.getElementById('fpSubDrawer');
-  const btnSitePause = document.getElementById('btnSitePause');
+  const btnToggleExclude = document.getElementById('btnToggleExclude');
+  const exclusionHeaderToggle = document.getElementById('exclusionHeaderToggle');
+  const exclusionCountBadge = document.getElementById('exclusionCountBadge');
+  const btnToggleExclusionDrawer = document.getElementById('btnToggleExclusionDrawer');
+  const exclusionDrawer = document.getElementById('exclusionDrawer');
+  const inputExcludeDomain = document.getElementById('inputExcludeDomain');
+  const btnAddExcludeDomain = document.getElementById('btnAddExcludeDomain');
+  const exclusionListItems = document.getElementById('exclusionListItems');
 
   const updateDot = document.getElementById('updateDot');
   const updateBanner = document.getElementById('updateBanner');
@@ -29,6 +36,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const manifest = chrome.runtime.getManifest();
     if (currentVersionBadge && manifest && manifest.version) {
       currentVersionBadge.textContent = 'v' + manifest.version;
+      currentVersionBadge.style.cursor = 'pointer';
+      currentVersionBadge.title = 'Click to check GitHub for updates now';
+      currentVersionBadge.addEventListener('click', () => {
+        const origText = currentVersionBadge.textContent;
+        currentVersionBadge.textContent = 'Checking...';
+        chrome.runtime.sendMessage({ action: 'CHECK_UPDATE_NOW' }, (res) => {
+          setTimeout(() => {
+            currentVersionBadge.textContent = origText;
+            if (res && res.updateInfo) {
+              refreshState();
+            }
+          }, 400);
+        });
+      });
     }
   } catch (_) {}
 
@@ -74,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isLedgerExpanded = false;
   let isLogExpanded = false;
   let isFpDrawerOpen = false;
+  let isExclusionDrawerOpen = false;
   const openCookieDetails = new Set(); // Tracks which cookie rows the user clicked to inspect
 
   try {
@@ -82,7 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // On mobile browsers (Firefox Android, Kiwi, Lemur, Orion iOS), the popup opens as a full tab,
     // so tabs[0] is the extension popup itself. Find the active/most recent web tab instead:
     if (!candidate || !candidate.url || /^(chrome-extension|moz-extension|safari-web-extension):/i.test(candidate.url)) {
-      const allTabs = await chrome.tabs.query({ currentWindow: true });
+      const allTabs = await chrome.tabs.query({});
       const webTabs = (allTabs || []).filter((t) => t.url && /^https?:/i.test(t.url));
       if (webTabs.length > 0) {
         candidate = webTabs.sort((a, b) => (b.lastAccessed || b.index || 0) - (a.lastAccessed || a.index || 0))[0];
@@ -111,25 +133,104 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  function isCurrentSitePaused() {
+  function normalizeDomainInput(str) {
+    if (!str) return '';
+    let cleaned = str.trim().toLowerCase();
+    cleaned = cleaned.replace(/^[a-zA-Z]+:\/\//, '');
+    cleaned = cleaned.split('/')[0];
+    cleaned = cleaned.split(':')[0];
+    cleaned = cleaned.replace(/^www\./, '');
+    return cleaned;
+  }
+
+  function isCurrentSiteExcluded() {
     if (!activeHost || !Array.isArray(disabledDomains)) return false;
     return disabledDomains.some((d) => {
-      const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
+      const cleanD = normalizeDomainInput(d);
       return cleanD && (activeHost === cleanD || activeHost.endsWith('.' + cleanD));
     });
   }
 
-  function updateSitePauseUI() {
-    if (!btnSitePause) return;
-    if (!activeHost) {
-      btnSitePause.style.display = 'none';
-      return;
+  function updateExclusionUI() {
+    const isExcluded = isCurrentSiteExcluded();
+    if (btnToggleExclude) {
+      if (!activeHost) {
+        btnToggleExclude.style.display = 'none';
+      } else {
+        btnToggleExclude.style.display = 'inline-block';
+        btnToggleExclude.classList.toggle('excluded', isExcluded);
+        btnToggleExclude.textContent = isExcluded ? '\u2713 Excluded' : '+ Exclude Site';
+        btnToggleExclude.title = isExcluded
+          ? 'Site is excluded from Voidwalker. Click to re-enable protection.'
+          : `Click to exclude ${activeHost} so history, preferences & logins work untouched.`;
+      }
     }
-    btnSitePause.style.display = 'inline-block';
-    const paused = isCurrentSitePaused();
-    btnSitePause.classList.toggle('paused', paused);
-    activeDomainEl.classList.toggle('paused', paused);
-    btnSitePause.textContent = paused ? 'Paused (Resume)' : 'Pause Site';
+    if (activeDomainEl) {
+      activeDomainEl.classList.toggle('paused', isExcluded);
+    }
+    if (exclusionCountBadge) {
+      const count = (disabledDomains || []).length;
+      exclusionCountBadge.textContent = `${count} excluded`;
+    }
+    if (exclusionListItems) {
+      if (!disabledDomains || disabledDomains.length === 0) {
+        exclusionListItems.innerHTML = '<div class="log-empty">No domains excluded yet.</div>';
+      } else {
+        exclusionListItems.innerHTML = '';
+        disabledDomains.forEach((domain) => {
+          const chip = document.createElement('div');
+          chip.className = 'exclusion-chip';
+
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = domain;
+          chip.appendChild(nameSpan);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'exclusion-remove-btn';
+          removeBtn.textContent = '\u2715';
+          removeBtn.title = `Remove ${domain} from exclusion list`;
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeExcludedDomain(domain);
+          });
+          chip.appendChild(removeBtn);
+
+          exclusionListItems.appendChild(chip);
+        });
+      }
+    }
+  }
+
+  function addExcludedDomain(domainStr) {
+    const clean = normalizeDomainInput(domainStr);
+    if (!clean) return;
+    if (!disabledDomains.includes(clean)) {
+      disabledDomains.push(clean);
+      updateExclusionUI();
+      saveConfig(() => {
+        refreshState();
+      });
+    }
+  }
+
+  function removeExcludedDomain(domainStr) {
+    const clean = normalizeDomainInput(domainStr);
+    disabledDomains = disabledDomains.filter((d) => normalizeDomainInput(d) !== clean);
+    updateExclusionUI();
+    saveConfig(() => {
+      refreshState();
+    });
+  }
+
+  function toggleExclusionDrawer(e) {
+    if (e) e.stopPropagation();
+    isExclusionDrawerOpen = !isExclusionDrawerOpen;
+    if (exclusionDrawer) {
+      exclusionDrawer.style.display = isExclusionDrawerOpen ? 'flex' : 'none';
+    }
+    if (btnToggleExclusionDrawer) {
+      btnToggleExclusionDrawer.textContent = isExclusionDrawerOpen ? 'Close \u25B4' : 'Manage \u25BE';
+    }
   }
 
   function toggleLedgerExpand(e) {
@@ -180,7 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (modFpHardware) modFpHardware.checked = config.fpHardware !== false;
       modChaff.checked = Boolean(config.chaffGenerator);
       disabledDomains = Array.isArray(config.disabledDomains) ? [...config.disabledDomains] : [];
-      updateSitePauseUI();
+      updateExclusionUI();
     }
 
     if (tabStats) {
@@ -188,10 +289,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         detectedCmpText.textContent = 'Protection Disabled';
         detectedCmpText.style.color = '#94a3b8';
         detectedCmpText.title = 'Voidwalker master toggle is disabled';
-      } else if (isCurrentSitePaused()) {
-        detectedCmpText.textContent = 'Paused on this site';
-        detectedCmpText.style.color = '#f59e0b';
-        detectedCmpText.title = 'Voidwalker is paused on this domain (Whitelisted)';
+      } else if (isCurrentSiteExcluded()) {
+        detectedCmpText.textContent = 'Site Excluded (All Protection Bypassed)';
+        detectedCmpText.style.color = '#38bdf8';
+        detectedCmpText.title = 'Voidwalker is completely disabled on this domain (Native behavior preserved)';
       } else if (tabStats.wallsDefeated > 0 || (tabStats.detectedCmp && tabStats.detectedCmp !== 'Scanning...' && tabStats.detectedCmp !== 'Active & Monitoring')) {
         detectedCmpText.textContent = 'Consent Wall Bypassed (Active)';
         detectedCmpText.style.color = '#10b981';
@@ -339,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     );
   }
 
-  function saveConfig() {
+  function saveConfig(cb) {
     const newConfig = {
       enabled: toggleMaster.checked,
       consentSpoofer: modConsent.checked,
@@ -352,25 +453,50 @@ document.addEventListener('DOMContentLoaded', async () => {
       fpScreen: modFpScreen ? modFpScreen.checked : true,
       fpHardware: modFpHardware ? modFpHardware.checked : true,
       chaffGenerator: modChaff.checked,
-      disabledDomains
+      disabledDomains: [...disabledDomains],
+      whitelistSeeded: true
     };
-    chrome.storage.local.set({ cgConfig: newConfig });
+    chrome.storage.local.set({ cgConfig: newConfig }, () => {
+      if (typeof cb === 'function') cb();
+    });
   }
 
-  if (btnSitePause) {
-    btnSitePause.addEventListener('click', () => {
+  if (btnToggleExclude) {
+    btnToggleExclude.addEventListener('click', () => {
       if (!activeHost) return;
-      if (isCurrentSitePaused()) {
-        disabledDomains = disabledDomains.filter((d) => {
-          const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
-          return cleanD !== activeHost && !activeHost.endsWith('.' + cleanD);
-        });
+      if (isCurrentSiteExcluded()) {
+        removeExcludedDomain(activeHost);
       } else {
-        disabledDomains.push(activeHost);
+        addExcludedDomain(activeHost);
       }
-      updateSitePauseUI();
-      saveConfig();
-      refreshState();
+    });
+  }
+
+  if (exclusionHeaderToggle) {
+    exclusionHeaderToggle.addEventListener('click', toggleExclusionDrawer);
+  }
+
+  if (btnToggleExclusionDrawer) {
+    btnToggleExclusionDrawer.addEventListener('click', toggleExclusionDrawer);
+  }
+
+  if (btnAddExcludeDomain && inputExcludeDomain) {
+    btnAddExcludeDomain.addEventListener('click', () => {
+      const val = inputExcludeDomain.value;
+      if (val) {
+        addExcludedDomain(val);
+        inputExcludeDomain.value = '';
+      }
+    });
+
+    inputExcludeDomain.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const val = inputExcludeDomain.value;
+        if (val) {
+          addExcludedDomain(val);
+          inputExcludeDomain.value = '';
+        }
+      }
     });
   }
 

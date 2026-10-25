@@ -22,7 +22,7 @@
           </div>
           <div class="domain-row">
             <div id="activeDomain" class="domain-pill">Scanning tab...</div>
-            <button id="btnSitePause" class="site-pause-btn" title="Pause or resume Voidwalker on this specific website">Pause Site</button>
+            <button id="btnToggleExclude" class="site-exclude-btn" title="Add or remove this website from the Exclusion List">+ Exclude Site</button>
           </div>
         </div>
       </div>
@@ -89,6 +89,26 @@
       </div>
       <div id="cookieLedgerList" class="ledger-feed">
         <div class="log-empty">No manipulated cookies tracked on this tab yet.</div>
+      </div>
+    </section>
+
+    <!-- Exclusion List Section (Whitelist) -->
+    <section class="exclusion-section">
+      <div id="exclusionHeaderToggle" class="log-header clickable-header" title="Click to view and manage excluded websites">
+        <span>EXCLUSION LIST (WHITELIST)</span>
+        <div class="header-actions">
+          <span id="exclusionCountBadge" class="ledger-badge">0 excluded</span>
+          <button id="btnToggleExclusionDrawer" class="expand-btn">Manage &#9662;</button>
+        </div>
+      </div>
+      <div id="exclusionDrawer" class="exclusion-drawer" style="display: none;">
+        <div class="exclusion-add-row">
+          <input type="text" id="inputExcludeDomain" class="exclusion-input" placeholder="e.g. youtube.com, twitch.tv" />
+          <button id="btnAddExcludeDomain" class="btn-add-exclude">+ Add</button>
+        </div>
+        <div id="exclusionListItems" class="exclusion-list-items">
+          <div class="log-empty">No domains excluded yet.</div>
+        </div>
       </div>
     </section>
 

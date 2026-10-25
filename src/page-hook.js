@@ -34,6 +34,13 @@
 
   let rawMasterEnabled = true;
 
+  let isExcludedPersisted = null;
+  try {
+    const val = window.localStorage.getItem('__vw_is_excluded__');
+    if (val === '1') isExcludedPersisted = true;
+    else if (val === '0') isExcludedPersisted = false;
+  } catch (_) {}
+
   const config = {
     enabled: true,
     consentSpoofer: true,
@@ -46,7 +53,7 @@
     fpScreen: true,
     fpHardware: true,
     chaffGenerator: true,
-    disabledDomains: []
+    disabledDomains: ['youtube.com']
   };
 
   function isCurrentDomainDisabled() {
@@ -55,9 +62,17 @@
       return false;
     }
     return config.disabledDomains.some((d) => {
-      const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
+      let cleanD = String(d || '').toLowerCase().trim();
+      cleanD = cleanD.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0].replace(/^www\./, '');
       return cleanD && (host === cleanD || host.endsWith('.' + cleanD));
     });
+  }
+
+  // Synchronous 0.00ms early defense check
+  if (isExcludedPersisted !== null) {
+    config.enabled = !isExcludedPersisted;
+  } else {
+    config.enabled = !isCurrentDomainDisabled();
   }
 
   function applyIncomingConfig(incoming) {
@@ -66,7 +81,15 @@
       rawMasterEnabled = incoming.enabled;
     }
     Object.assign(config, incoming);
-    config.enabled = rawMasterEnabled && !isCurrentDomainDisabled();
+    const disabled = isCurrentDomainDisabled();
+    config.enabled = rawMasterEnabled && !disabled;
+    try {
+      if (disabled) {
+        window.localStorage.setItem('__vw_is_excluded__', '1');
+      } else {
+        window.localStorage.setItem('__vw_is_excluded__', '0');
+      }
+    } catch (_) {}
   }
 
   // Automatic Persona Lifecycle & Time-To-Live (2 Hours)
@@ -179,6 +202,7 @@
   }
 
   function emitEvent(type, detail) {
+    if (!config.enabled) return;
     try {
       const payload = {
         __cookieGuardianEvent: true,
@@ -201,6 +225,10 @@
     sendToIsolated({ __vw_ack__: true });
     if (bridgeReady) return;
     bridgeReady = true;
+    if (!config.enabled) {
+      earlyEventQueue.length = 0;
+      return;
+    }
     while (earlyEventQueue.length > 0) {
       const payload = earlyEventQueue.shift();
       sendToIsolated(payload);

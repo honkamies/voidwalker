@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   fpScreen: true,
   fpHardware: true,
   chaffGenerator: true,
-  disabledDomains: []
+  disabledDomains: ['youtube.com']
 };
 
 let currentConfig = { ...DEFAULT_CONFIG };
@@ -29,9 +29,16 @@ function isDomainDisabled(domainStr) {
   if (!domainStr || !Array.isArray(currentConfig.disabledDomains) || currentConfig.disabledDomains.length === 0) {
     return false;
   }
-  const cleanHost = String(domainStr).toLowerCase().replace(/^\.+/, '').replace(/^www\./, '');
+  let cleanHost = String(domainStr).toLowerCase();
+  try {
+    if (cleanHost.includes('://')) {
+      cleanHost = new URL(cleanHost).hostname;
+    }
+  } catch (_) {}
+  cleanHost = cleanHost.replace(/^\.+/, '').replace(/^www\./, '').split('/')[0].split(':')[0];
   return currentConfig.disabledDomains.some((d) => {
-    const cleanD = String(d || '').toLowerCase().replace(/^www\./, '');
+    let cleanD = String(d || '').toLowerCase().trim();
+    cleanD = cleanD.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0].replace(/^www\./, '');
     return cleanD && (cleanHost === cleanD || cleanHost.endsWith('.' + cleanD));
   });
 }
@@ -64,8 +71,8 @@ const httpFamilyLedger = new Map();
 const UPDATE_CHECK_CONFIG = {
   repoOwner: 'honkamies',
   repoName: 'voidwalker',
-  checkIntervalMinutes: 240, // Every 4 hours
-  cooldownMs: 2 * 60 * 60 * 1000 // 2 hours minimum between network requests unless forced
+  checkIntervalMinutes: 120, // Every 2 hours
+  cooldownMs: 15 * 60 * 1000 // 15 minutes minimum between network requests unless forced
 };
 
 let cachedUpdateInfo = {
@@ -139,9 +146,17 @@ async function checkForGitHubUpdate(force = false) {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
     if (!res.cgConfig) {
-      chrome.storage.local.set({ cgConfig: DEFAULT_CONFIG });
+      currentConfig = { ...DEFAULT_CONFIG, whitelistSeeded: true };
+      chrome.storage.local.set({ cgConfig: currentConfig });
     } else {
       currentConfig = { ...DEFAULT_CONFIG, ...res.cgConfig };
+      if (!res.cgConfig.whitelistSeeded) {
+        if (!Array.isArray(currentConfig.disabledDomains) || !currentConfig.disabledDomains.includes('youtube.com')) {
+          currentConfig.disabledDomains = Array.from(new Set([...(currentConfig.disabledDomains || []), 'youtube.com']));
+        }
+        currentConfig.whitelistSeeded = true;
+        chrome.storage.local.set({ cgConfig: currentConfig });
+      }
     }
     if (res.cgGlobalStats) {
       globalStats = { ...globalStats, ...res.cgGlobalStats };
@@ -162,6 +177,13 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
   if (res && res.cgConfig) {
     currentConfig = { ...DEFAULT_CONFIG, ...res.cgConfig };
+    if (!res.cgConfig.whitelistSeeded) {
+      if (!Array.isArray(currentConfig.disabledDomains) || !currentConfig.disabledDomains.includes('youtube.com')) {
+        currentConfig.disabledDomains = Array.from(new Set([...(currentConfig.disabledDomains || []), 'youtube.com']));
+      }
+      currentConfig.whitelistSeeded = true;
+      chrome.storage.local.set({ cgConfig: currentConfig });
+    }
   }
   if (res && res.cgGlobalStats) {
     globalStats = { ...globalStats, ...res.cgGlobalStats };
@@ -213,38 +235,45 @@ function getOrCreateTabEntry(tabId) {
 
 function updateBadge(tabId) {
   if (!tabId || tabId < 0) return;
-  const entry = tabStats.get(tabId);
-  if (!currentConfig.enabled) {
-    chrome.action.setBadgeText({ tabId, text: 'OFF' }).catch(() => {});
-    chrome.action.setBadgeBackgroundColor({ tabId, color: '#64748b' }).catch(() => {});
-    return;
-  }
-  if (!entry) {
-    if (cachedUpdateInfo.hasUpdate) {
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError || !tab) return;
+    if (tab.url && isDomainDisabled(tab.url)) {
+      chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+      return;
+    }
+    const entry = tabStats.get(tabId);
+    if (!currentConfig.enabled) {
+      chrome.action.setBadgeText({ tabId, text: 'OFF' }).catch(() => {});
+      chrome.action.setBadgeBackgroundColor({ tabId, color: '#64748b' }).catch(() => {});
+      return;
+    }
+    if (!entry) {
+      if (cachedUpdateInfo.hasUpdate) {
+        chrome.action.setBadgeText({ tabId, text: '!' }).catch(() => {});
+        chrome.action.setBadgeBackgroundColor({ tabId, color: '#f59e0b' }).catch(() => {});
+      } else {
+        chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+      }
+      return;
+    }
+    const total =
+      entry.wallsDefeated +
+      entry.cookiesMutated +
+      (entry.reInjectionsBlocked || 0) +
+      entry.telemetryPoisoned +
+      entry.fingerprintsSpoofed +
+      entry.chaffSent;
+
+    if (total > 0) {
+      chrome.action.setBadgeText({ tabId, text: String(total) }).catch(() => {});
+      chrome.action.setBadgeBackgroundColor({ tabId, color: '#10b981' }).catch(() => {});
+    } else if (cachedUpdateInfo.hasUpdate) {
       chrome.action.setBadgeText({ tabId, text: '!' }).catch(() => {});
       chrome.action.setBadgeBackgroundColor({ tabId, color: '#f59e0b' }).catch(() => {});
     } else {
       chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
     }
-    return;
-  }
-  const total =
-    entry.wallsDefeated +
-    entry.cookiesMutated +
-    (entry.reInjectionsBlocked || 0) +
-    entry.telemetryPoisoned +
-    entry.fingerprintsSpoofed +
-    entry.chaffSent;
-
-  if (total > 0) {
-    chrome.action.setBadgeText({ tabId, text: String(total) }).catch(() => {});
-    chrome.action.setBadgeBackgroundColor({ tabId, color: '#10b981' }).catch(() => {});
-  } else if (cachedUpdateInfo.hasUpdate) {
-    chrome.action.setBadgeText({ tabId, text: '!' }).catch(() => {});
-    chrome.action.setBadgeBackgroundColor({ tabId, color: '#f59e0b' }).catch(() => {});
-  } else {
-    chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
-  }
+  });
 }
 
 function upsertTabTrackedCookie(entry, name, poisonedValue, source, isReinjection) {
@@ -267,6 +296,7 @@ function upsertTabTrackedCookie(entry, name, poisonedValue, source, isReinjectio
 }
 
 function recordGuardianEvent(tabId, eventType, detail, senderUrl) {
+  if (senderUrl && isDomainDisabled(senderUrl)) return;
   const entry = getOrCreateTabEntry(tabId);
   const d = detail || {};
 
@@ -548,6 +578,7 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
 // Active scrub/poison all tracking cookies for a given URL on demand
 async function mutateAllCookiesForUrl(urlStr, tabId) {
   if (!urlStr || !urlStr.startsWith('http')) return 0;
+  if (isDomainDisabled(urlStr)) return 0;
   try {
     const cookies = await chrome.cookies.getAll({ url: urlStr });
     let mutatedCount = 0;

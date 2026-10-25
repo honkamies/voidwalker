@@ -102,7 +102,7 @@ Webpages cannot access your physical CPU, GPU, sound card, or monitor directly�
 
 While all defense modules and hardware layers are enabled by default for maximum protection, Voidwalker includes **one-click per-site bypass** and **granular hardware sub-layer toggles** in the extension popup for specialized web applications:
 
-* **Pause Site (Per-Domain Whitelist Button):** Located right next to the active domain name in the popup header. Click **Pause Site** on trusted services (such as online banking, government ID portals, or corporate SSO) to completely bypass Voidwalker on that domain while keeping protection active everywhere else.
+* **One-Click Site Exclusion (Per-Domain Whitelist):** Located right next to the active domain name in the popup header (`+ Exclude Site` / `✓ Excluded`), plus an expandable **Exclusion List (Whitelist)** management drawer. Click to immediately exclude media- or account-heavy sites (pre-seeded with `youtube.com`) so that video watch history, playback progress, account preferences, and login sessions run 100% natively without cookie mutation or telemetry poisoning, while keeping full protection active everywhere else.
 * **Hardware Layers (`Layers ▾` Drawer):** Click **Layers ▾** next to *Hardware Fingerprint Privacy Layer* in the popup to individually toggle any of the 5 hardware sub-shields:
   * **Canvas 2D & Font Sub-Pixel Jitter:** Switch off only on browser-based photo/pixel editors (e.g., *Photopea*) if you need 100% unmodified RGB eyedropper pixel exports.
   * **WebGL 1 & 2 GPU Vendor/Renderer:** Switch off only on 3D hardware benchmarks or cloud-gaming portals that auto-tune graphics shaders based on your physical GPU model.

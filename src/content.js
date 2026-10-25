@@ -19,7 +19,7 @@
     fpScreen: true,
     fpHardware: true,
     chaffGenerator: true,
-    disabledDomains: []
+    disabledDomains: ['youtube.com']
   };
 
   function pushConfigToPage(cfg) {
