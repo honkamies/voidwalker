@@ -11,9 +11,15 @@
     <!-- Header -->
     <header class="header">
       <div class="brand">
-        <div class="shield-icon"><img src="../icons/icon128.png" alt="Voidwalker" style="width:36px;height:36px;border-radius:8px;display:block;" /></div>
+        <div class="shield-icon">
+          <img src="../icons/icon128.png" alt="Voidwalker" style="width:36px;height:36px;border-radius:8px;display:block;" />
+          <div id="updateDot" class="update-dot" style="display: none;" title="New version available on GitHub">!</div>
+        </div>
         <div>
-          <h1>Voidwalker</h1>
+          <div class="title-row">
+            <h1>Voidwalker</h1>
+            <span id="currentVersionBadge" class="version-badge">v1.0.0</span>
+          </div>
           <div class="domain-row">
             <div id="activeDomain" class="domain-pill">Scanning tab...</div>
             <button id="btnSitePause" class="site-pause-btn" title="Pause or resume Voidwalker on this specific website">Pause Site</button>
@@ -26,10 +32,22 @@
       </label>
     </header>
 
-    <!-- Sniffer Status Banner -->
+    <!-- Update Notification Banner -->
+    <div id="updateBanner" class="update-banner" style="display: none;">
+      <div class="update-banner-left">
+        <span class="update-icon">&#9889;</span>
+        <div>
+          <div class="update-title">Update Available: <span id="newVersionTag">v1.0.1</span></div>
+          <div class="update-desc">New version ready on GitHub Releases</div>
+        </div>
+      </div>
+      <a id="btnGetUpdate" class="update-btn" href="https://github.com/honkamies/voidwalker/releases/latest" target="_blank" rel="noopener">Update &#8599;</a>
+    </div>
+
+    <!-- Protection Status Banner -->
     <div class="cmp-banner">
-      <span class="cmp-label">SNIFFER STATUS:</span>
-      <span id="detectedCmpText" class="cmp-value">Monitoring page...</span>
+      <span class="cmp-label">STATUS:</span>
+      <span id="detectedCmpText" class="cmp-value">Active &amp; Guarding</span>
     </div>
 
     <!-- Stats Grid -->

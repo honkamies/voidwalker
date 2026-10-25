@@ -66,9 +66,9 @@ jobs:
 
             ### 📦 Which file should I download?
             * **Chrome, Brave, Edge, Vivaldi, Opera, Arc, Kiwi (Android), Lemur (Android), Orion (iOS/macOS):**
-              👉 Download **`voidwalker-v1.0.0.zip`** (or `voidwalker-chromium.zip`) below
+              👉 Download **`voidwalker-${{ github.ref_name }}.zip`** (or `voidwalker-chromium.zip`) below
             * **Firefox (Desktop & Android), Zen Browser, LibreWolf, Waterfox, Mullvad Browser:**
-              👉 Download **`voidwalker-firefox-v1.0.0.zip`** (or `voidwalker-firefox.zip`) below
+              👉 Download **`voidwalker-firefox-${{ github.ref_name }}.zip`** (or `voidwalker-firefox.zip`) below
 
             ---
 

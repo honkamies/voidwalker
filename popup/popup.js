@@ -19,6 +19,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   const fpSubDrawer = document.getElementById('fpSubDrawer');
   const btnSitePause = document.getElementById('btnSitePause');
 
+  const updateDot = document.getElementById('updateDot');
+  const updateBanner = document.getElementById('updateBanner');
+  const newVersionTag = document.getElementById('newVersionTag');
+  const btnGetUpdate = document.getElementById('btnGetUpdate');
+  const currentVersionBadge = document.getElementById('currentVersionBadge');
+
+  try {
+    const manifest = chrome.runtime.getManifest();
+    if (currentVersionBadge && manifest && manifest.version) {
+      currentVersionBadge.textContent = 'v' + manifest.version;
+    }
+  } catch (_) {}
+
+  function openReleaseUrl() {
+    const targetUrl = (btnGetUpdate && btnGetUpdate.getAttribute('href')) || 'https://github.com/honkamies/voidwalker/releases/latest';
+    chrome.tabs.create({ url: targetUrl });
+  }
+
+  if (btnGetUpdate) {
+    btnGetUpdate.addEventListener('click', (e) => {
+      e.preventDefault();
+      openReleaseUrl();
+    });
+  }
+
+  if (updateDot) {
+    updateDot.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openReleaseUrl();
+    });
+  }
+
   const activeDomainEl = document.getElementById('activeDomain');
   const detectedCmpText = document.getElementById('detectedCmpText');
   const statWalls = document.getElementById('statWalls');
@@ -121,7 +154,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderUI(state) {
     if (!state) return;
-    const { config, tabStats } = state;
+    const { config, tabStats, updateInfo } = state;
+
+    if (updateInfo) {
+      const hasUpdate = Boolean(updateInfo.hasUpdate);
+      if (updateDot) updateDot.style.display = hasUpdate ? 'flex' : 'none';
+      if (updateBanner) updateBanner.style.display = hasUpdate ? 'flex' : 'none';
+      if (newVersionTag && updateInfo.latestVersion) {
+        newVersionTag.textContent = updateInfo.latestVersion;
+      }
+      if (btnGetUpdate && updateInfo.releaseUrl) {
+        btnGetUpdate.href = updateInfo.releaseUrl;
+      }
+    }
 
     if (config) {
       toggleMaster.checked = Boolean(config.enabled);
@@ -140,9 +185,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (tabStats) {
-      detectedCmpText.textContent = isCurrentSitePaused()
-        ? 'Paused on this domain (Whitelisted)'
-        : tabStats.detectedCmp || 'Active & Monitoring';
+      if (!config || !config.enabled) {
+        detectedCmpText.textContent = 'Protection Disabled';
+        detectedCmpText.style.color = '#94a3b8';
+        detectedCmpText.title = 'Voidwalker master toggle is disabled';
+      } else if (isCurrentSitePaused()) {
+        detectedCmpText.textContent = 'Paused on this site';
+        detectedCmpText.style.color = '#f59e0b';
+        detectedCmpText.title = 'Voidwalker is paused on this domain (Whitelisted)';
+      } else if (tabStats.wallsDefeated > 0 || (tabStats.detectedCmp && tabStats.detectedCmp !== 'Scanning...' && tabStats.detectedCmp !== 'Active & Monitoring')) {
+        detectedCmpText.textContent = 'Consent Wall Bypassed (Active)';
+        detectedCmpText.style.color = '#10b981';
+        detectedCmpText.title = tabStats.detectedCmp ? `Framework intercepted: ${tabStats.detectedCmp}` : 'Consent wall bypassed';
+      } else {
+        detectedCmpText.textContent = 'Active & Guarding';
+        detectedCmpText.style.color = '#10b981';
+        detectedCmpText.title = 'Sniffer active & monitoring page';
+      }
       statWalls.textContent = tabStats.wallsDefeated || 0;
       const totalCookieActions = (tabStats.cookiesMutated || 0) + (tabStats.reInjectionsBlocked || 0);
       statCookies.textContent = totalCookieActions;
@@ -258,6 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  let hasRequestedUpdateCheck = false;
   function refreshState() {
     chrome.runtime.sendMessage(
       {
@@ -265,7 +325,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         tabId: activeTab ? activeTab.id : null
       },
       (res) => {
-        if (res) renderUI(res);
+        if (res) {
+          renderUI(res);
+          if (!hasRequestedUpdateCheck && (!res.updateInfo || !res.updateInfo.lastChecked)) {
+            hasRequestedUpdateCheck = true;
+            chrome.runtime.sendMessage({ action: 'CHECK_UPDATE_NOW' }, (checkRes) => {
+              if (checkRes && checkRes.updateInfo) {
+                renderUI({ ...res, updateInfo: checkRes.updateInfo });
+              }
+            });
+          }
+        }
       }
     );
   }

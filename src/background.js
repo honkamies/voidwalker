@@ -58,9 +58,86 @@ const httpCookieLedger = new Map();
 // Family ledger by domain: `${cleanDomain}|${canonicalFamily}` -> ledgerEntry
 const httpFamilyLedger = new Map();
 
+// ============================================================================
+// GITHUB RELEASE UPDATE CHECKER
+// ============================================================================
+const UPDATE_CHECK_CONFIG = {
+  repoOwner: 'honkamies',
+  repoName: 'voidwalker',
+  checkIntervalMinutes: 240, // Every 4 hours
+  cooldownMs: 2 * 60 * 60 * 1000 // 2 hours minimum between network requests unless forced
+};
+
+let cachedUpdateInfo = {
+  hasUpdate: false,
+  latestVersion: null,
+  releaseUrl: 'https://github.com/honkamies/voidwalker/releases/latest',
+  releaseName: '',
+  lastChecked: 0
+};
+
+function isNewerVersion(currentVer, latestVer) {
+  if (!latestVer) return false;
+  const cleanCurrent = String(currentVer).replace(/^v/i, '').trim();
+  const cleanLatest = String(latestVer).replace(/^v/i, '').trim();
+  const currParts = cleanCurrent.split('.').map((p) => parseInt(p, 10) || 0);
+  const latestParts = cleanLatest.split('.').map((p) => parseInt(p, 10) || 0);
+
+  for (let i = 0; i < Math.max(currParts.length, latestParts.length); i++) {
+    const c = currParts[i] || 0;
+    const l = latestParts[i] || 0;
+    if (l > c) return true;
+    if (l < c) return false;
+  }
+  return false;
+}
+
+async function checkForGitHubUpdate(force = false) {
+  const now = Date.now();
+  if (!force && cachedUpdateInfo.lastChecked && (now - cachedUpdateInfo.lastChecked < UPDATE_CHECK_CONFIG.cooldownMs)) {
+    return cachedUpdateInfo;
+  }
+
+  try {
+    const currentVer = chrome.runtime.getManifest().version;
+    const url = `https://api.github.com/repos/${UPDATE_CHECK_CONFIG.repoOwner}/${UPDATE_CHECK_CONFIG.repoName}/releases/latest`;
+    const res = await fetch(url, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const latestTag = data.tag_name || '';
+      const hasUpdate = isNewerVersion(currentVer, latestTag);
+      cachedUpdateInfo = {
+        hasUpdate,
+        latestVersion: latestTag,
+        releaseUrl: data.html_url || `https://github.com/${UPDATE_CHECK_CONFIG.repoOwner}/${UPDATE_CHECK_CONFIG.repoName}/releases/latest`,
+        releaseName: data.name || latestTag,
+        lastChecked: now
+      };
+
+      await chrome.storage.local.set({ vwUpdateInfo: cachedUpdateInfo });
+
+      if (hasUpdate) {
+        chrome.action.setBadgeText({ text: '!' }).catch(() => {});
+        chrome.action.setBadgeBackgroundColor({ color: '#f59e0b' }).catch(() => {});
+      }
+    } else {
+      cachedUpdateInfo.lastChecked = now;
+    }
+  } catch (_) {
+    cachedUpdateInfo.lastChecked = now;
+  }
+
+  return cachedUpdateInfo;
+}
+
 // Initialize storage on startup
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['cgConfig', 'cgGlobalStats'], (res) => {
+  chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
     if (!res.cgConfig) {
       chrome.storage.local.set({ cgConfig: DEFAULT_CONFIG });
     } else {
@@ -69,21 +146,50 @@ chrome.runtime.onInstalled.addListener(() => {
     if (res.cgGlobalStats) {
       globalStats = { ...globalStats, ...res.cgGlobalStats };
     }
+    if (res.vwUpdateInfo) {
+      cachedUpdateInfo = { ...cachedUpdateInfo, ...res.vwUpdateInfo };
+    }
+    checkForGitHubUpdate(true).catch(() => {});
   });
+
+  try {
+    chrome.alarms.create('CHECK_VOIDWALKER_UPDATE', {
+      periodInMinutes: UPDATE_CHECK_CONFIG.checkIntervalMinutes
+    });
+  } catch (_) {}
 });
 
-chrome.storage.local.get(['cgConfig', 'cgGlobalStats'], (res) => {
+chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
   if (res && res.cgConfig) {
     currentConfig = { ...DEFAULT_CONFIG, ...res.cgConfig };
   }
   if (res && res.cgGlobalStats) {
     globalStats = { ...globalStats, ...res.cgGlobalStats };
   }
+  if (res && res.vwUpdateInfo) {
+    cachedUpdateInfo = { ...cachedUpdateInfo, ...res.vwUpdateInfo };
+    if (cachedUpdateInfo.hasUpdate) {
+      chrome.action.setBadgeText({ text: '!' }).catch(() => {});
+      chrome.action.setBadgeBackgroundColor({ color: '#f59e0b' }).catch(() => {});
+    }
+  }
+  checkForGitHubUpdate(false).catch(() => {});
 });
+
+if (chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'CHECK_VOIDWALKER_UPDATE') {
+      checkForGitHubUpdate(true).catch(() => {});
+    }
+  });
+}
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.cgConfig && changes.cgConfig.newValue) {
     currentConfig = { ...DEFAULT_CONFIG, ...changes.cgConfig.newValue };
+    for (const [tId] of tabStats.entries()) {
+      updateBadge(tId);
+    }
   }
 });
 
@@ -113,7 +219,12 @@ function updateBadge(tabId) {
     return;
   }
   if (!entry) {
-    chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+    if (cachedUpdateInfo.hasUpdate) {
+      chrome.action.setBadgeText({ tabId, text: '!' }).catch(() => {});
+      chrome.action.setBadgeBackgroundColor({ tabId, color: '#f59e0b' }).catch(() => {});
+    } else {
+      chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+    }
     return;
   }
   const total =
@@ -124,8 +235,15 @@ function updateBadge(tabId) {
     entry.fingerprintsSpoofed +
     entry.chaffSent;
 
-  chrome.action.setBadgeText({ tabId, text: total > 0 ? String(total) : '' }).catch(() => {});
-  chrome.action.setBadgeBackgroundColor({ tabId, color: '#10b981' }).catch(() => {});
+  if (total > 0) {
+    chrome.action.setBadgeText({ tabId, text: String(total) }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ tabId, color: '#10b981' }).catch(() => {});
+  } else if (cachedUpdateInfo.hasUpdate) {
+    chrome.action.setBadgeText({ tabId, text: '!' }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ tabId, color: '#f59e0b' }).catch(() => {});
+  } else {
+    chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+  }
 }
 
 function upsertTabTrackedCookie(entry, name, poisonedValue, source, isReinjection) {
@@ -497,7 +615,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({
       config: currentConfig,
       tabStats: entry,
-      globalStats
+      globalStats,
+      updateInfo: cachedUpdateInfo
+    });
+    return true;
+  }
+
+  if (msg.action === 'CHECK_UPDATE_NOW') {
+    checkForGitHubUpdate(true).then((info) => {
+      sendResponse({ ok: true, updateInfo: info });
     });
     return true;
   }

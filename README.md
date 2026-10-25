@@ -16,13 +16,13 @@ Walk through "Allow Cookies or Pay" walls leaving only a ghost. Spoofs consent, 
 
 ## 📦 Download & Quick Install
 
-Grab the latest ready-to-install package from **[GitHub Releases (`v1.0.0`)](https://github.com/honkamies/voidwalker/releases/latest)** or directly from the [`releases/`](releases/) folder:
+Grab the latest ready-to-install package from **[GitHub Releases](https://github.com/honkamies/voidwalker/releases/latest)** or directly from the [`releases/`](releases/) folder:
 
 | Browser Family | Supported Browsers | Download Package | How to Install |
 | :--- | :--- | :--- | :--- |
-| **Chromium (Desktop)** | **Chrome**, **Brave**, **Edge**, **Vivaldi**, **Opera**, **Arc** | **[`voidwalker-v1.0.0.zip`](https://github.com/honkamies/voidwalker/releases/latest/download/voidwalker-v1.0.0.zip)** | Open `chrome://extensions` (or `brave://extensions` / `edge://extensions`), toggle **Developer mode** ON, and **drag & drop the `.zip`** onto the page (or unzip and click **Load unpacked**). |
-| **Firefox / Gecko (Desktop)** | **Firefox** (v115+), **Zen Browser**, **LibreWolf**, **Waterfox**, **Mullvad** | **[`voidwalker-firefox-v1.0.0.zip`](https://github.com/honkamies/voidwalker/releases/latest/download/voidwalker-firefox-v1.0.0.zip)** | Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on...**, and select `voidwalker-firefox-v1.0.0.zip` (or `manifest.json` on Developer/Nightly/LibreWolf). |
-| **Mobile (Android & iOS)** | **Kiwi Browser**, **Lemur Browser**, **Firefox Nightly/Android**, **Orion Browser (iOS)** | **[`voidwalker-v1.0.0.zip`](https://github.com/honkamies/voidwalker/releases/latest/download/voidwalker-v1.0.0.zip)** *(or Firefox `.zip` on Gecko)* | Open the browser's **Extensions** menu → tap **+ (from `.zip` / `.crx` / `.xpi`)** and select the downloaded `.zip` file. |
+| **Chromium (Desktop)** | **Chrome**, **Brave**, **Edge**, **Vivaldi**, **Opera**, **Arc** | **[`voidwalker-chromium.zip`](https://github.com/honkamies/voidwalker/releases/latest/download/voidwalker-chromium.zip)** | Open `chrome://extensions` (or `brave://extensions` / `edge://extensions`), toggle **Developer mode** ON, and **drag & drop the `.zip`** onto the page (or unzip and click **Load unpacked**). |
+| **Firefox / Gecko (Desktop)** | **Firefox** (v115+), **Zen Browser**, **LibreWolf**, **Waterfox**, **Mullvad** | **[`voidwalker-firefox.zip`](https://github.com/honkamies/voidwalker/releases/latest/download/voidwalker-firefox.zip)** | Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on...**, and select `voidwalker-firefox.zip` (or `manifest.json` on Developer/Nightly/LibreWolf). |
+| **Mobile (Android & iOS)** | **Kiwi Browser**, **Lemur Browser**, **Firefox Nightly/Android**, **Orion Browser (iOS)** | **[`voidwalker-chromium.zip`](https://github.com/honkamies/voidwalker/releases/latest/download/voidwalker-chromium.zip)** *(or [`voidwalker-firefox.zip`](https://github.com/honkamies/voidwalker/releases/latest/download/voidwalker-firefox.zip) on Gecko)* | Open the browser's **Extensions** menu → tap **+ (from `.zip` / `.crx` / `.xpi`)** and select the downloaded `.zip` file. |
 
 ---
 
