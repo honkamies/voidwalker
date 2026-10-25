@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Voidwalker - Anti-Tracking & Consent Spoofer",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Walks through 'Allow Cookies or Pay' walls leaving zero real trace - spoofs consent, follows & mutates tracking cookies, poisons telemetry, and scrambles fingerprints.",
   "permissions": [
     "cookies",
@@ -41,12 +41,6 @@
       "run_at": "document_start",
       "world": "ISOLATED",
       "all_frames": true
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["src/page-hook.js"],
-      "matches": ["<all_urls>"]
     }
   ],
   "action": {

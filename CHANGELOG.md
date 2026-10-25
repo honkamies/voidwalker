@@ -4,6 +4,17 @@ All notable changes to the Voidwalker browser extension are documented in this f
 
 ---
 
+## [v1.0.6] - 2026-10-25
+
+### 🐛 Fixed
+- **Eliminated Edge & Chromium CSP Extension Error:**
+  - Removed the legacy 15ms DOM `<script>` injection fallback in `content.js` that triggered Content Security Policy (CSP) violations on strict sites (e.g., Edge/Chrome flagging an "Error" on the extension card).
+  - Modern Chromium and Firefox browsers natively execute `page-hook.js` via `world: MAIN` at `document_start`, making DOM injection obsolete.
+- **Enhanced Extension Stealth:**
+  - Removed `web_accessible_resources` exposure from `manifest.json`, preventing third-party tracking scripts from fingerprinting the extension's internal file paths via fetch probes.
+
+---
+
 ## [v1.0.5] - 2026-10-25
 
 ### 🚀 Added
