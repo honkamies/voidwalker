@@ -180,6 +180,7 @@ if (chrome.alarms && chrome.alarms.onAlarm) {
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'CHECK_VOIDWALKER_UPDATE') {
       checkForGitHubUpdate(true).catch(() => {});
+      try { cleanupExpiredLedgerEntries(); } catch (_) {}
     }
   });
 }
@@ -364,11 +365,29 @@ function randomUUID() {
   });
 }
 
+const PERSONA_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours automatic persona decay
+
+function cleanupExpiredLedgerEntries() {
+  const now = Date.now();
+  for (const [key, entry] of httpCookieLedger.entries()) {
+    if (now - (entry.updatedAt || 0) > PERSONA_TTL_MS) {
+      httpCookieLedger.delete(key);
+    }
+  }
+  for (const [key, entry] of httpFamilyLedger.entries()) {
+    if (now - (entry.updatedAt || 0) > PERSONA_TTL_MS) {
+      httpFamilyLedger.delete(key);
+    }
+  }
+}
+
 function generateMutatedCookieValue(name, val, existingEntry) {
   if (!val) return val;
 
-  // If we already have a locked poisoned value for this cookie or its family, adapt to new version format while keeping fake ID
-  if (existingEntry && existingEntry.poisonedValue) {
+  const isExpired = existingEntry && existingEntry.updatedAt && (Date.now() - existingEntry.updatedAt >= PERSONA_TTL_MS);
+
+  // If we already have a locked poisoned value for this cookie or its family AND it is not expired:
+  if (existingEntry && existingEntry.poisonedValue && !isExpired) {
     if (/^GA1\.\d+\.\d+\.\d+/.test(val) && existingEntry.coreFakeId) {
       const parts = val.split('.');
       return `${parts[0]}.${parts[1]}.${existingEntry.coreFakeId}`;

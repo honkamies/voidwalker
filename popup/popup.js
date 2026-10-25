@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       () => {
         setTimeout(() => {
-          btnRotatePoison.textContent = '\uD83D\uDD04 Rotate Fake ID & Poison Cookies';
+          btnRotatePoison.textContent = '\uD83D\uDD04 Rotate Fake ID Now (Auto: 2h)';
           refreshState();
         }, 350);
       }

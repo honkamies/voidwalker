@@ -343,6 +343,13 @@ input:checked + .slider:before {
   background: #34d399;
 }
 
+.auto-rotate-note {
+  font-size: 10px;
+  color: #64748b;
+  text-align: center;
+  margin-top: 1px;
+}
+
 /* Followed Cookie Ledger */
 .ledger-section {
   background: #0b1324;

@@ -69,8 +69,36 @@
     config.enabled = rawMasterEnabled && !isCurrentDomainDisabled();
   }
 
+  // Automatic Persona Lifecycle & Time-To-Live (2 Hours)
+  const PERSONA_TTL_MS = 2 * 60 * 60 * 1000;
+  let personaCreatedAt = Date.now();
+
   // Generate a disposable per-page-load fake persona
   const FAKE_PERSONA = generateFakePersona();
+
+  function autoRotatePersonaIfNeeded() {
+    if (!config.enabled || !config.cookieMutator) return;
+    const now = Date.now();
+    if (now - personaCreatedAt >= PERSONA_TTL_MS) {
+      personaCreatedAt = now;
+      Object.assign(FAKE_PERSONA, generateFakePersona());
+      rotateAllLedgerCookiesToNewPersona();
+      emitEvent('PERSONA_ROTATED', {
+        summary: `Auto-Rotated Fake ID \u2192 ${FAKE_PERSONA.uuid.slice(0, 8)}... (2h TTL Expired)`
+      });
+    }
+  }
+
+  // Check on tab visibility restoration (e.g. user returns to a tab left open for hours)
+  try {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        autoRotatePersonaIfNeeded();
+      }
+    });
+    // Check every 5 minutes in background
+    setInterval(autoRotatePersonaIfNeeded, 5 * 60 * 1000);
+  } catch (_) {}
 
   function generateFakePersona() {
     const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -196,10 +224,11 @@
         enforceCookieLedgerWatchdog();
       }
     } else if (data.type === 'ROTATE_PERSONA') {
+      personaCreatedAt = Date.now();
       Object.assign(FAKE_PERSONA, generateFakePersona());
       rotateAllLedgerCookiesToNewPersona();
       emitEvent('PERSONA_ROTATED', {
-        summary: `New Fake ID: ${FAKE_PERSONA.uuid.slice(0, 8)}... (${FAKE_PERSONA.screen.w}x${FAKE_PERSONA.screen.h})`
+        summary: `Manually Rotated Fake ID \u2192 ${FAKE_PERSONA.uuid.slice(0, 8)}... (${FAKE_PERSONA.screen.w}x${FAKE_PERSONA.screen.h})`
       });
     } else if (data.type === 'GET_LEDGER_SNAPSHOT') {
       emitLedgerSnapshot();
