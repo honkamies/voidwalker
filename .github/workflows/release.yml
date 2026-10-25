@@ -69,30 +69,17 @@ jobs:
               if match:
                   changelog_section = match.group(1).strip()
 
-          body = f"""## 🛡️ Voidwalker {tag}
-
-### 🆕 What's New in this Release
-{changelog_section if changelog_section else "Performance improvements and defense updates."}
-
----
-
-### 📦 Which file should I download?
-* **Chrome, Brave, Edge, Vivaldi, Opera, Arc, Kiwi (Android), Lemur (Android), Orion (iOS/macOS):**
-  👉 Download **`voidwalker-{tag}.zip`** (or `voidwalker-chromium.zip`) below
-* **Firefox (Desktop & Android), Zen Browser, LibreWolf, Waterfox, Mullvad Browser:**
-  👉 Download **`voidwalker-firefox-{tag}.zip`** (or `voidwalker-firefox.zip`) below
-
----
-
-### ✨ Core Privacy Architecture
-1. **Universal-Encoding Consent Wall Spoofer (`0.00ms`):** Fakes IAB TCF v2.2 (`__tcfapi`), Sourcepoint, OneTrust, Cookiebot, and Didomi consent across UTF-8, ISO-8859-1, Windows-1252, and mojibake encodings while removing scroll locks.
-2. **Stateful Shadow Cookie Ledger (`Locked`):** Mutates tracking cookies into format-preserving fake IDs across host-only and parent-domain scopes, blocking overwrites and version bumps.
-3. **In-Memory JS Variable Network Scrubber:** Replaces raw tracking IDs in outgoing `fetch()`, `XMLHttpRequest`, and `navigator.sendBeacon()` URLs and payloads before packets leave the browser.
-4. **6-Surface Randomized Hardware Privacy Layer (`0.00ms`):** Spoofs Canvas 2D, WebGL GPU vendor/renderer, `AudioContext` DSP waveforms, `window.screen` geometry, Client Hints, and battery status.
-5. **One-Click Site Exclusion (Whitelist):** Toggle domain exclusion right from the popup to preserve 100% native functionality on video/account-heavy services like YouTube.
-"""
+          sep = "\n\n---\n\n"
+          body_parts = [
+              f"## 🛡️ Voidwalker {tag}",
+              "### 🆕 What's New in this Release\n" + (changelog_section if changelog_section else "Performance improvements and defense updates."),
+              sep,
+              f"### 📦 Which file should I download?\n* **Chrome, Brave, Edge, Vivaldi, Opera, Arc, Kiwi (Android), Lemur (Android), Orion (iOS/macOS):**\n  👉 Download **`voidwalker-{tag}.zip`** (or `voidwalker-chromium.zip`) below\n* **Firefox (Desktop & Android), Zen Browser, LibreWolf, Waterfox, Mullvad Browser:**\n  👉 Download **`voidwalker-firefox-{tag}.zip`** (or `voidwalker-firefox.zip`) below",
+              sep,
+              "### ✨ Core Privacy Architecture\n1. **Universal-Encoding Consent Wall Spoofer (`0.00ms`):** Fakes IAB TCF v2.2 (`__tcfapi`), Sourcepoint, OneTrust, Cookiebot, and Didomi consent across UTF-8, ISO-8859-1, Windows-1252, and mojibake encodings while removing scroll locks.\n2. **Stateful Shadow Cookie Ledger (`Locked`):** Mutates tracking cookies into format-preserving fake IDs across host-only and parent-domain scopes, blocking overwrites and version bumps.\n3. **In-Memory JS Variable Network Scrubber:** Replaces raw tracking IDs in outgoing `fetch()`, `XMLHttpRequest`, and `navigator.sendBeacon()` URLs and payloads before packets leave the browser.\n4. **6-Surface Randomized Hardware Privacy Layer (`0.00ms`):** Spoofs Canvas 2D, WebGL GPU vendor/renderer, `AudioContext` DSP waveforms, `window.screen` geometry, Client Hints, and battery status.\n5. **One-Click Site Exclusion (Whitelist):** Toggle domain exclusion right from the popup to preserve 100% native functionality on video/account-heavy services like YouTube."
+          ]
           with open("RELEASE_BODY.md", "w", encoding="utf-8") as f:
-              f.write(body)
+              f.write("".join(body_parts))
           PY
 
       - name: Create GitHub Release & Upload Packages
