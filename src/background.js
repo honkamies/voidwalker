@@ -143,7 +143,11 @@ async function checkForGitHubUpdate(force = false) {
 }
 
 // Initialize storage on startup
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details && details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('welcome/welcome.html') }).catch(() => {});
+  }
+
   chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
     if (!res.cgConfig) {
       currentConfig = { ...DEFAULT_CONFIG, whitelistSeeded: true };

@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inputExcludeDomain = document.getElementById('inputExcludeDomain');
   const btnAddExcludeDomain = document.getElementById('btnAddExcludeDomain');
   const exclusionListItems = document.getElementById('exclusionListItems');
+  const btnPresetMedia = document.getElementById('btnPresetMedia');
+  const btnPresetWork = document.getElementById('btnPresetWork');
+
+  const PRESET_PACKS = {
+    media: ['youtube.com', 'twitch.tv', 'netflix.com', 'spotify.com'],
+    work: ['meet.google.com', 'teams.microsoft.com', 'zoom.us']
+  };
 
   const updateDot = document.getElementById('updateDot');
   const updateBanner = document.getElementById('updateBanner');
@@ -198,6 +205,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           exclusionListItems.appendChild(chip);
         });
       }
+    }
+
+    if (btnPresetMedia) {
+      const isMediaActive = PRESET_PACKS.media.every((d) => disabledDomains.includes(d));
+      btnPresetMedia.classList.toggle('active', isMediaActive);
+      btnPresetMedia.textContent = isMediaActive ? '\u2713 Media' : '+ Media Pack';
+      btnPresetMedia.title = isMediaActive ? 'Click to remove Media Pack from whitelist' : 'Add YouTube, Twitch, Netflix, Spotify to whitelist';
+    }
+    if (btnPresetWork) {
+      const isWorkActive = PRESET_PACKS.work.every((d) => disabledDomains.includes(d));
+      btnPresetWork.classList.toggle('active', isWorkActive);
+      btnPresetWork.textContent = isWorkActive ? '\u2713 Work' : '+ Work Pack';
+      btnPresetWork.title = isWorkActive ? 'Click to remove Work Pack from whitelist' : 'Add Google Meet, Teams, Zoom to whitelist';
     }
   }
 
@@ -498,6 +518,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
     });
+  }
+
+  function togglePresetPack(packKey) {
+    const pack = PRESET_PACKS[packKey];
+    if (!pack) return;
+    const allPresent = pack.every((d) => disabledDomains.includes(d));
+    if (allPresent) {
+      disabledDomains = disabledDomains.filter((d) => !pack.includes(d));
+    } else {
+      pack.forEach((d) => {
+        if (!disabledDomains.includes(d)) disabledDomains.push(d);
+      });
+    }
+    updateExclusionUI();
+    saveConfig(() => {
+      refreshState();
+    });
+  }
+
+  if (btnPresetMedia) {
+    btnPresetMedia.addEventListener('click', () => togglePresetPack('media'));
+  }
+
+  if (btnPresetWork) {
+    btnPresetWork.addEventListener('click', () => togglePresetPack('work'));
   }
 
   [

@@ -25,7 +25,7 @@ jobs:
               base_manifest = json.load(f)
 
           version = base_manifest.get("version", "1.0.0")
-          include_items = ["README.md", "CHANGELOG.md", "test-lab.html", "src", "popup", "icons"]
+          include_items = ["README.md", "CHANGELOG.md", "test-lab.html", "src", "popup", "icons", "welcome"]
 
           chrome_manifest = dict(base_manifest)
           chrome_manifest["background"] = {"service_worker": "src/background.js"}

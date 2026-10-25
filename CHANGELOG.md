@@ -4,6 +4,20 @@ All notable changes to the Voidwalker browser extension are documented in this f
 
 ---
 
+## [v1.0.7] - 2026-10-25
+
+### 🚀 Added
+- **Interactive First-Install Welcome & Pinning Guide (`welcome/welcome.html`):**
+  - Automatically opens a dedicated cyber-dark onboarding tab upon first installation (`chrome.runtime.onInstalled`).
+  - **Browser-Specific Pinning Guidance:** Auto-detects the browser and displays step-by-step instructions for **Microsoft Edge** (Show in toolbar 👁️), **Google Chrome / Brave** (Pin icon 📌), and **Firefox** (Pin to Toolbar).
+  - **Live Defense Overview:** Summarizes the 0.00ms consent spoofer, stateful cookie ledger, 6-surface hardware cloaking, and 2-hour automated identity rotation.
+- **One-Click Whitelist Presets (Welcome Page & Popup Drawer):**
+  - **`+ Media Pack`:** One-click whitelist toggle for YouTube, Twitch, Netflix, and Spotify to protect video watch history and recommendations.
+  - **`+ Work Pack`:** One-click whitelist toggle for Google Meet, Microsoft Teams, and Zoom to ensure mic/webcam hardware IDs and SSO logins work smoothly.
+  - Integrated directly inside the extension popup's **Exclusion List (Whitelist)** drawer and the new welcome setup tab.
+
+---
+
 ## [v1.0.6] - 2026-10-25
 
 ### 🐛 Fixed

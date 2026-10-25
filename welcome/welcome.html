@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Voidwalker — Quick Setup Guide</title>
+  <link rel="stylesheet" href="welcome.css" />
+</head>
+<body>
+  <div class="welcome-container">
+    <!-- Header Banner -->
+    <header class="hero-header">
+      <div class="hero-brand">
+        <img src="../icons/icon128.png" alt="Voidwalker Shield" class="hero-logo" />
+        <div class="hero-text">
+          <h1>Voidwalker Installed!</h1>
+          <p class="hero-subtitle">Universal Anti-Tracking, Consent Spoofer &amp; Hardware Privacy Layer</p>
+        </div>
+      </div>
+      <div class="status-pill">
+        <span class="pulse-dot"></span>
+        <span>Active &amp; Guarding</span>
+      </div>
+    </header>
+
+    <!-- Main Setup Grid -->
+    <main class="setup-grid">
+      <!-- Step 1: Pin to Toolbar -->
+      <section class="card pin-guide-card">
+        <div class="card-badge">STEP 1 &bull; IMPORTANT</div>
+        <h2>📌 Pin Voidwalker to Your Toolbar</h2>
+        <p class="card-desc">
+          Browsers hide new extensions by default behind the puzzle menu. Pin Voidwalker so you can always see live blocked counters and access your one-click whitelist:
+        </p>
+
+        <!-- Browser Selector Tabs -->
+        <div class="browser-tabs" role="tablist">
+          <button class="tab-btn active" data-browser="edge">Microsoft Edge</button>
+          <button class="tab-btn" data-browser="chrome">Google Chrome / Brave</button>
+          <button class="tab-btn" data-browser="firefox">Firefox / Zen</button>
+        </div>
+
+        <!-- Tab Content: Edge -->
+        <div id="tab-edge" class="tab-pane active">
+          <div class="steps-flow">
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div class="step-info">
+                <strong>Click the Extensions Menu</strong>
+                <span>Click the puzzle piece icon (<strong>🧩</strong>) in Edge's top-right toolbar.</span>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div class="step-info">
+                <strong>Show in Toolbar</strong>
+                <span>Hover over <strong>Voidwalker</strong> and click the <strong>Eye icon (👁️)</strong> to keep it permanently visible on your toolbar.</span>
+              </div>
+            </div>
+          </div>
+          <div class="browser-hint">
+            💡 <em>Tip: You can also right-click the Voidwalker row inside the extensions menu and choose <strong>"Show in toolbar"</strong>.</em>
+          </div>
+        </div>
+
+        <!-- Tab Content: Chrome / Brave -->
+        <div id="tab-chrome" class="tab-pane">
+          <div class="steps-flow">
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div class="step-info">
+                <strong>Open Extensions Menu</strong>
+                <span>Click the puzzle piece icon (<strong>🧩</strong>) next to your profile avatar.</span>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div class="step-info">
+                <strong>Click the Pin Icon</strong>
+                <span>Find <strong>Voidwalker</strong> and click the <strong>Pin icon (📌)</strong> to pin the shield directly to your toolbar.</span>
+              </div>
+            </div>
+          </div>
+          <div class="browser-hint">
+            💡 <em>Tip: In Brave, the puzzle icon is next to the Brave Shields lion icon.</em>
+          </div>
+        </div>
+
+        <!-- Tab Content: Firefox -->
+        <div id="tab-firefox" class="tab-pane">
+          <div class="steps-flow">
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div class="step-info">
+                <strong>Open Extensions Menu</strong>
+                <span>Click the Extensions jigsaw button (<strong>🧩</strong>) in the Firefox toolbar.</span>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div class="step-info">
+                <strong>Pin to Toolbar</strong>
+                <span>Click the <strong>Gear icon (⚙️)</strong> next to Voidwalker and select <strong>"Pin to Toolbar"</strong>.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2: One-Click Whitelist Presets -->
+      <section class="card whitelist-presets-card">
+        <div class="card-badge">STEP 2 &bull; RECOMMENDED</div>
+        <h2>🎯 Quick-Setup Whitelist (Exclusion List)</h2>
+        <p class="card-desc">
+          Voidwalker completely stands down on whitelisted sites so video watch progress, account playlists, and corporate logins work 100% natively.
+        </p>
+
+        <div class="preset-packs-grid">
+          <!-- Preset 1: Media & Video -->
+          <div class="preset-pack-box" id="packMediaBox">
+            <div class="pack-header">
+              <div class="pack-title">
+                <span class="pack-icon">🎬</span>
+                <div>
+                  <strong>Video &amp; Streaming Pack</strong>
+                  <div class="pack-sub">YouTube, Twitch, Netflix, Spotify</div>
+                </div>
+              </div>
+              <button id="btnToggleMediaPack" class="btn-pack-toggle" data-pack="media">+ Add Pack</button>
+            </div>
+            <p class="pack-detail">
+              Prevents video loss and protects your watch history, recommendations, and resume progress. (<code>youtube.com</code> is pre-activated by default).
+            </p>
+          </div>
+
+          <!-- Preset 2: Work & Conferencing -->
+          <div class="preset-pack-box" id="packWorkBox">
+            <div class="pack-header">
+              <div class="pack-title">
+                <span class="pack-icon">💼</span>
+                <div>
+                  <strong>Work &amp; Conferencing Pack</strong>
+                  <div class="pack-sub">Google Meet, Microsoft Teams, Zoom</div>
+                </div>
+              </div>
+              <button id="btnToggleWorkPack" class="btn-pack-toggle" data-pack="work">+ Add Pack</button>
+            </div>
+            <p class="pack-detail">
+              Ensures microphone/camera device IDs and corporate SSO credentials work smoothly during video meetings.
+            </p>
+          </div>
+        </div>
+
+        <div class="whitelist-note">
+          <span>⚡ <em>You can also exclude any site in real time by clicking the <strong>"+ Exclude Site"</strong> button in the popup header.</em></span>
+        </div>
+      </section>
+
+      <!-- Step 3: Automated Defense Overview -->
+      <section class="card overview-card">
+        <div class="card-badge">HANDS-OFF PRIVACY</div>
+        <h2>🛡️ How Voidwalker Operates Behind the Scenes</h2>
+        <div class="defense-highlights">
+          <div class="highlight-item">
+            <div class="hl-icon">⚡</div>
+            <div class="hl-content">
+              <strong>Universal Consent Spoofer (0.00ms)</strong>
+              <span>Fakes IAB TCF v2.2 and CMP responses at script execution start so "Allow Cookies or Pay" walls unlock without paying.</span>
+            </div>
+          </div>
+          <div class="highlight-item">
+            <div class="hl-icon">🔒</div>
+            <div class="hl-content">
+              <strong>Stateful Shadow Cookie Ledger</strong>
+              <span>Forces locked fake UUIDs into tracking cookies and blocks server wipe-and-recreate cycles.</span>
+            </div>
+          </div>
+          <div class="highlight-item">
+            <div class="hl-icon">🎭</div>
+            <div class="hl-content">
+              <strong>6-Surface Hardware Cloaking</strong>
+              <span>Randomizes Canvas 2D, WebGL GPU, AudioContext waveforms, and screen geometry on every tab.</span>
+            </div>
+          </div>
+          <div class="highlight-item">
+            <div class="hl-icon">🔄</div>
+            <div class="hl-content">
+              <strong>Automatic 2-Hour Persona Rotation</strong>
+              <span>Identities refresh automatically every 2 hours in the background for complete zero-maintenance defense.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer Actions -->
+    <footer class="welcome-footer">
+      <div class="footer-left">
+        <a href="../test-lab.html" target="_blank" class="btn btn-secondary">🧪 Open Interactive Test Lab</a>
+      </div>
+      <div class="footer-right">
+        <button id="btnCloseWelcome" class="btn btn-primary">Done &amp; Start Browsing &rarr;</button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="welcome.js"></script>
+</body>
+</html>
