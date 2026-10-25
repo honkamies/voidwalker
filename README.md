@@ -112,12 +112,6 @@ While all defense modules and hardware layers are enabled by default for maximum
 
 ---
 
-## 📖 Built-in Clean News Reader View
-
-Click **📖 Clean News Reader View** in the Voidwalker popup to strip any cluttered news page down to a distraction-free dark reader view. Voidwalker extracts structured article content and front-page headlines directly from JSON-LD (`NewsArticle`), Next.js `__NEXT_DATA__` trees, and semantic `<article>` tags while automatically repairing character-encoding mojibake.
-
----
-
 ## 🧪 Local Interactive Test Lab
 
 Open [`test-lab.html`](test-lab.html) in your browser to run a live simulation of a *"Pay or Okay"* news portal and inspect side-by-side:

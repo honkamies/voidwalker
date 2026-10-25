@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logFeed = document.getElementById('logFeed');
 
   const btnRotatePoison = document.getElementById('btnRotatePoison');
-  const btnCleanReader = document.getElementById('btnCleanReader');
   const btnClearLog = document.getElementById('btnClearLog');
 
   let activeTab = null;
@@ -409,13 +408,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 350);
       }
     );
-  });
-
-  btnCleanReader.addEventListener('click', () => {
-    if (!activeTab || !activeTab.id) return;
-    chrome.tabs.sendMessage(activeTab.id, { action: 'TOGGLE_CLEAN_READER' }, () => {
-      window.close();
-    });
   });
 
   btnClearLog.addEventListener('click', () => {
