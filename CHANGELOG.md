@@ -4,6 +4,17 @@ All notable changes to the Voidwalker browser extension are documented in this f
 
 ---
 
+## [v1.0.9] - 2026-10-25
+
+### 🐛 Fixed
+- **Fixed Flexbox Squashing on Followed Cookie Ledger Rows in Constrained Viewports:**
+  - Resolved root cause where the extension popup bubble in Microsoft Edge and Chromium (constrained to 600px max height) squeezed flex items. Because `.ledger-item-wrap` had `overflow: hidden`, the CSS flexbox specification defaulted its minimum height to `0` instead of `auto`, causing the entire row to collapse into a tight black sliver with invisible text.
+  - Added strict `flex-shrink: 0;` across all `.app` sections, `.ledger-section`, `.ledger-feed`, `.ledger-item-wrap`, and `.ledger-row` so they can never be compressed below their intended dimensions.
+  - Added explicit `min-height: 36px;` on `.ledger-item-wrap` and `height: 34px; line-height: 34px;` on `.ledger-row`.
+  - Configured `body` with `max-height: 600px; overflow-y: auto; overflow-x: hidden;`, allowing smooth, natural vertical scrolling through all defense modules while guaranteeing every ledger row and detail card opens to full height.
+
+---
+
 ## [v1.0.8] - 2026-10-25
 
 ### 🐛 Fixed

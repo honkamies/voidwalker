@@ -24,13 +24,25 @@
   background: #10b981;
 }
 
+html {
+  width: 390px;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   width: 390px;
+  min-height: 100%;
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: #0f172a;
   color: #f1f5f9;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   user-select: none;
+  margin: 0;
+  padding: 0;
 }
 
 .app {
@@ -38,6 +50,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: min-content;
+}
+
+.app > * {
+  flex-shrink: 0;
 }
 
 /* Header */
@@ -362,6 +379,7 @@ input:checked + .slider:before {
   border: 1px solid #1e293b;
   border-radius: 10px;
   padding: 8px 11px;
+  flex-shrink: 0;
 }
 
 .clickable-header {
@@ -408,6 +426,7 @@ input:checked + .slider:before {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 11px;
   line-height: 1.4;
+  flex-shrink: 0;
 }
 
 .ledger-feed.expanded {
@@ -421,6 +440,9 @@ input:checked + .slider:before {
   border: 1px solid #1e293b;
   border-radius: 7px;
   overflow: hidden;
+  flex-shrink: 0;
+  min-height: 36px;
+  box-sizing: border-box;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
@@ -440,11 +462,12 @@ input:checked + .slider:before {
   justify-content: space-between;
   gap: 8px;
   min-height: 34px;
-  padding: 7px 10px;
+  height: 34px;
+  padding: 0 10px;
   cursor: pointer;
   box-sizing: border-box;
-  line-height: 1.4;
   user-select: none;
+  flex-shrink: 0;
   transition: background-color 0.15s ease;
 }
 
@@ -461,7 +484,8 @@ input:checked + .slider:before {
   color: #38bdf8;
   font-weight: 700;
   font-size: 11px;
-  line-height: 18px;
+  line-height: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -488,13 +512,14 @@ input:checked + .slider:before {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  line-height: 18px;
+  line-height: 34px;
 }
 
 .ledger-val {
   color: #94a3b8;
   font-size: 10.5px;
-  line-height: 18px;
+  line-height: 34px;
+  height: 34px;
   flex: 0 1 115px;
   max-width: 125px;
   min-width: 0;
@@ -529,6 +554,7 @@ input:checked + .slider:before {
   color: #cbd5e1;
   line-height: 1.5;
   word-break: break-all;
+  flex-shrink: 0;
 }
 
 .ledger-item-wrap.open .ledger-details {
