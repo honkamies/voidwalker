@@ -15,7 +15,17 @@
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "src/background.js"
+    "service_worker": "src/background.js",
+    "scripts": ["src/background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "voidwalker@honkamies.github.io",
+      "strict_min_version": "115.0"
+    },
+    "gecko_android": {
+      "strict_min_version": "115.0"
+    }
   },
   "content_scripts": [
     {
@@ -31,6 +41,12 @@
       "run_at": "document_start",
       "world": "ISOLATED",
       "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/page-hook.js"],
+      "matches": ["<all_urls>"]
     }
   ],
   "action": {

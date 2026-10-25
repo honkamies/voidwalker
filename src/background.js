@@ -366,9 +366,14 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
     value: newValue,
     path: cookie.path,
     secure: cookie.secure,
-    httpOnly: cookie.httpOnly,
-    sameSite: cookie.sameSite
+    httpOnly: cookie.httpOnly
   };
+  if (cookie.sameSite && cookie.sameSite !== 'unspecified') {
+    setDetails.sameSite = cookie.sameSite;
+  }
+  if (cookie.storeId) {
+    setDetails.storeId = cookie.storeId;
+  }
   if (!cookie.hostOnly && cookie.domain) {
     setDetails.domain = cookie.domain;
   }
@@ -443,9 +448,14 @@ async function mutateAllCookiesForUrl(urlStr, tabId) {
           value: newValue,
           path: cookie.path,
           secure: cookie.secure,
-          httpOnly: cookie.httpOnly,
-          sameSite: cookie.sameSite
+          httpOnly: cookie.httpOnly
         };
+        if (cookie.sameSite && cookie.sameSite !== 'unspecified') {
+          setDetails.sameSite = cookie.sameSite;
+        }
+        if (cookie.storeId) {
+          setDetails.storeId = cookie.storeId;
+        }
         if (!cookie.hostOnly && cookie.domain) setDetails.domain = cookie.domain;
         if (cookie.expirationDate) setDetails.expirationDate = cookie.expirationDate;
 

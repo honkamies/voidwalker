@@ -170,6 +170,7 @@
   }
 
   function flushEarlyEvents() {
+    sendToIsolated({ __vw_ack__: true });
     if (bridgeReady) return;
     bridgeReady = true;
     while (earlyEventQueue.length > 0) {

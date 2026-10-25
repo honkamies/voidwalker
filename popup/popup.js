@@ -46,7 +46,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    activeTab = tabs && tabs[0] ? tabs[0] : null;
+    let candidate = tabs && tabs[0] ? tabs[0] : null;
+    // On mobile browsers (Firefox Android, Kiwi, Lemur, Orion iOS), the popup opens as a full tab,
+    // so tabs[0] is the extension popup itself. Find the active/most recent web tab instead:
+    if (!candidate || !candidate.url || /^(chrome-extension|moz-extension|safari-web-extension):/i.test(candidate.url)) {
+      const allTabs = await chrome.tabs.query({ currentWindow: true });
+      const webTabs = (allTabs || []).filter((t) => t.url && /^https?:/i.test(t.url));
+      if (webTabs.length > 0) {
+        candidate = webTabs.sort((a, b) => (b.lastAccessed || b.index || 0) - (a.lastAccessed || a.index || 0))[0];
+      }
+    }
+    activeTab = candidate;
   } catch (_) {}
 
   if (activeTab && activeTab.url) {

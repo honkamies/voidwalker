@@ -41,9 +41,16 @@
   }
 
   // Listen for telemetry/sniffer events from MAIN world (page-hook.js)
+  let mainWorldConfirmed = false;
   const seenEventSigs = new Set();
   window.addEventListener('message', (event) => {
-    if (event.source !== window || !event.data || !event.data.__cookieGuardianEvent) return;
+    if (event.source !== window || !event.data) return;
+    if (event.data.__vw_ack__) {
+      mainWorldConfirmed = true;
+      return;
+    }
+    if (!event.data.__cookieGuardianEvent) return;
+    mainWorldConfirmed = true;
     const data = event.data;
     const sig = `${data.type}|${data.detail && data.detail.summary}|${data.detail && data.detail.timestamp}`;
     if (seenEventSigs.has(sig)) return;
@@ -61,6 +68,22 @@
   try {
     window.postMessage({ __vw_cmd__: true, type: 'BRIDGE_READY' }, '*');
   } catch (_) {}
+
+  // Universal Mobile / WebKit / Legacy Browser Fallback:
+  // If a browser (e.g., Orion on iOS, older Firefox <128, or mobile WebKit) ignores `"world": "MAIN"`
+  // in manifest.json, inject src/page-hook.js directly into the page DOM at document_start.
+  setTimeout(() => {
+    if (mainWorldConfirmed) return;
+    try {
+      const s = document.createElement('script');
+      s.src = chrome.runtime.getURL('src/page-hook.js');
+      s.onload = () => {
+        s.remove();
+        window.postMessage({ __vw_cmd__: true, type: 'BRIDGE_READY' }, '*');
+      };
+      (document.head || document.documentElement).appendChild(s);
+    } catch (_) {}
+  }, 15);
 
   // Load initial config and sync to MAIN world
   try {
