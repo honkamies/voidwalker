@@ -4,6 +4,24 @@ All notable changes to the Voidwalker browser extension are documented in this f
 
 ---
 
+## [v1.0.8] - 2026-10-25
+
+### 🐛 Fixed
+- **Fixed Broken Row Heights & Text Clipping in Followed Cookie Ledger:**
+  - Resolved row layout distortion where table rows in `#cookieLedgerList` collapsed to ~22px height with no explicit `line-height`, causing letters, ascenders/descenders, and status badges to clip vertically ("showing only a little part of the text").
+  - Re-engineered `.ledger-row` with a comfortable `min-height: 34px`, `padding: 7px 10px`, and explicit `line-height: 1.4` (18px content bounds) for full vertical breathing room.
+  - Added `.ledger-name-text` with `overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;` ensuring long or hyphenated cookie names never wrap or break rows.
+  - Replaced plain text status tags with a styled, non-wrapping emerald micro-pill badge (`padding: 3px 7px; background: rgba(16, 185, 129, 0.12); border-radius: 4px;`) displaying blocked attempt counts cleanly without wrapping.
+  - Enhanced `.ledger-details` with 10.5px typography, 1.5 line height, and a divider border when open.
+  - Increased `.ledger-feed.expanded` maximum height from 190px to 250px with custom scrollbars for comfortable multi-item inspection.
+- **Eliminated UI Layout Shifts & DOM Thrashing:**
+  - Added cache-keyed rendering for both the cookie ledger and intercept activity logs (`lastLedgerKey` and `lastLogKey`).
+  - Stopped unconditional `innerHTML = ''` DOM destruction every 1.2 seconds, preserving DOM node references, hover states, keyboard focus, and scroll position when viewing expanded items.
+- **Enhanced Accessibility:**
+  - Added `role="button"`, `tabindex="0"`, `aria-expanded`, and keyboard `Enter`/`Space` listeners to ledger rows.
+
+---
+
 ## [v1.0.7] - 2026-10-25
 
 ### 🚀 Added

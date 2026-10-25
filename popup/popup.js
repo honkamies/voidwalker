@@ -104,6 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isFpDrawerOpen = false;
   let isExclusionDrawerOpen = false;
   const openCookieDetails = new Set(); // Tracks which cookie rows the user clicked to inspect
+  let lastLedgerKey = '';
+  let lastLogKey = '';
 
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -257,6 +259,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e) e.stopPropagation();
     isLedgerExpanded = !isLedgerExpanded;
     cookieLedgerList.classList.toggle('expanded', isLedgerExpanded);
+    lastLedgerKey = '';
     refreshState();
   }
 
@@ -269,6 +272,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       isLogExpanded = !isLogExpanded;
       logFeed.classList.toggle('expanded', isLogExpanded);
       btnToggleLog.textContent = isLogExpanded ? 'Collapse \u25B4' : 'Expand \u25BE';
+      lastLogKey = '';
+      refreshState();
     });
   }
 
@@ -346,93 +351,173 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (totalTracked > 0) {
-          cookieLedgerList.innerHTML = '';
           const visibleItems = isLedgerExpanded ? trackedEntries : trackedEntries.slice(0, 2);
+          const currentLedgerKey = `${isLedgerExpanded ? 'exp' : 'col'}:${totalTracked}:${Array.from(openCookieDetails).sort().join(',')}:${visibleItems
+            .map((i) => `${i.name}|${i.poisonedValue}|${i.reInjectionsBlocked || 0}`)
+            .join(';')}`;
 
-          for (const item of visibleItems) {
-            const wrap = document.createElement('div');
-            const isOpen = openCookieDetails.has(item.name);
-            wrap.className = `ledger-item-wrap${isOpen ? ' open' : ''}`;
+          if (currentLedgerKey !== lastLedgerKey) {
+            lastLedgerKey = currentLedgerKey;
+            cookieLedgerList.innerHTML = '';
 
-            const row = document.createElement('div');
-            row.className = 'ledger-row';
+            for (const item of visibleItems) {
+              const wrap = document.createElement('div');
+              const isOpen = openCookieDetails.has(item.name);
+              wrap.className = `ledger-item-wrap${isOpen ? ' open' : ''}`;
 
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'ledger-name';
-            const chevron = document.createElement('span');
-            chevron.className = 'ledger-chevron';
-            chevron.textContent = '\u25B8';
-            const nameText = document.createElement('span');
-            nameText.textContent = item.name;
-            nameSpan.appendChild(chevron);
-            nameSpan.appendChild(nameText);
+              const row = document.createElement('div');
+              row.className = 'ledger-row';
+              row.setAttribute('role', 'button');
+              row.setAttribute('tabindex', '0');
+              row.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+              row.title = `Click to ${isOpen ? 'collapse' : 'inspect'} shadow ledger details for ${item.name}`;
 
-            const valSpan = document.createElement('span');
-            valSpan.className = 'ledger-val';
-            valSpan.textContent = String(item.poisonedValue || '').slice(0, 16);
+              const nameSpan = document.createElement('span');
+              nameSpan.className = 'ledger-name';
+              nameSpan.title = item.name;
 
-            const statusSpan = document.createElement('span');
-            statusSpan.className = 'ledger-status';
-            statusSpan.textContent =
-              item.reInjectionsBlocked > 0 ? `Locked (${item.reInjectionsBlocked}x)` : 'Locked';
+              const chevron = document.createElement('span');
+              chevron.className = 'ledger-chevron';
+              chevron.textContent = '\u25B8';
 
-            row.appendChild(nameSpan);
-            row.appendChild(valSpan);
-            row.appendChild(statusSpan);
+              const nameText = document.createElement('span');
+              nameText.className = 'ledger-name-text';
+              nameText.textContent = item.name;
 
-            const details = document.createElement('div');
-            details.className = 'ledger-details';
-            const blockedCount = item.reInjectionsBlocked || 0;
-            details.innerHTML =
-              `<div class="detail-line"><span class="detail-label">Locked Fake ID:</span><span class="detail-code">${item.poisonedValue || ''}</span></div>` +
-              `<div class="detail-line"><span class="detail-label">Intercept Layer:</span><span>${item.source || 'JS'} Shadow Ledger</span></div>` +
-              `<div class="detail-line"><span class="detail-label">Protection:</span><span>${blockedCount > 0 ? `Blocked ${blockedCount} overwrite/version-bump attempt(s)` : 'Pinned & monitoring for overwrite attempts'}</span></div>`;
+              nameSpan.appendChild(chevron);
+              nameSpan.appendChild(nameText);
 
-            row.addEventListener('click', () => {
-              if (openCookieDetails.has(item.name)) {
-                openCookieDetails.delete(item.name);
-                wrap.classList.remove('open');
-              } else {
-                openCookieDetails.add(item.name);
-                wrap.classList.add('open');
-              }
-            });
+              const valSpan = document.createElement('span');
+              valSpan.className = 'ledger-val';
+              const rawVal = String(item.poisonedValue || '');
+              valSpan.textContent = rawVal.length > 16 ? rawVal.slice(0, 16) + '\u2026' : rawVal;
+              valSpan.title = rawVal;
 
-            wrap.appendChild(row);
-            wrap.appendChild(details);
-            cookieLedgerList.appendChild(wrap);
-          }
+              const statusSpan = document.createElement('span');
+              statusSpan.className = 'ledger-status';
+              const blockedCount = item.reInjectionsBlocked || 0;
+              statusSpan.textContent = blockedCount > 0 ? `Locked (${blockedCount}x)` : 'Locked';
 
-          if (!isLedgerExpanded && totalTracked > 2) {
-            const moreBtn = document.createElement('div');
-            moreBtn.className = 'more-pill';
-            moreBtn.textContent = `+ ${totalTracked - 2} more locked cookie(s) \u2014 click to show all`;
-            moreBtn.addEventListener('click', toggleLedgerExpand);
-            cookieLedgerList.appendChild(moreBtn);
+              row.appendChild(nameSpan);
+              row.appendChild(valSpan);
+              row.appendChild(statusSpan);
+
+              const details = document.createElement('div');
+              details.className = 'ledger-details';
+
+              const line1 = document.createElement('div');
+              line1.className = 'detail-line';
+              const lbl1 = document.createElement('span');
+              lbl1.className = 'detail-label';
+              lbl1.textContent = 'Locked Fake ID:';
+              const code1 = document.createElement('span');
+              code1.className = 'detail-code';
+              code1.textContent = item.poisonedValue || '';
+              line1.appendChild(lbl1);
+              line1.appendChild(code1);
+
+              const line2 = document.createElement('div');
+              line2.className = 'detail-line';
+              const lbl2 = document.createElement('span');
+              lbl2.className = 'detail-label';
+              lbl2.textContent = 'Intercept Layer:';
+              const span2 = document.createElement('span');
+              span2.textContent = `${item.source || 'JS'} Shadow Ledger`;
+              line2.appendChild(lbl2);
+              line2.appendChild(span2);
+
+              const line3 = document.createElement('div');
+              line3.className = 'detail-line';
+              const lbl3 = document.createElement('span');
+              lbl3.className = 'detail-label';
+              lbl3.textContent = 'Protection:';
+              const span3 = document.createElement('span');
+              span3.textContent =
+                blockedCount > 0
+                  ? `Blocked ${blockedCount} overwrite/version-bump attempt(s)`
+                  : 'Pinned & monitoring for overwrite attempts';
+              line3.appendChild(lbl3);
+              line3.appendChild(span3);
+
+              details.appendChild(line1);
+              details.appendChild(line2);
+              details.appendChild(line3);
+
+              const toggleOpen = () => {
+                if (openCookieDetails.has(item.name)) {
+                  openCookieDetails.delete(item.name);
+                  wrap.classList.remove('open');
+                  row.setAttribute('aria-expanded', 'false');
+                } else {
+                  openCookieDetails.add(item.name);
+                  wrap.classList.add('open');
+                  row.setAttribute('aria-expanded', 'true');
+                }
+                lastLedgerKey = `${isLedgerExpanded ? 'exp' : 'col'}:${totalTracked}:${Array.from(openCookieDetails).sort().join(',')}:${visibleItems
+                  .map((i) => `${i.name}|${i.poisonedValue}|${i.reInjectionsBlocked || 0}`)
+                  .join(';')}`;
+              };
+
+              row.addEventListener('click', toggleOpen);
+              row.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleOpen();
+                }
+              });
+
+              wrap.appendChild(row);
+              wrap.appendChild(details);
+              cookieLedgerList.appendChild(wrap);
+            }
+
+            if (!isLedgerExpanded && totalTracked > 2) {
+              const moreBtn = document.createElement('div');
+              moreBtn.className = 'more-pill';
+              moreBtn.textContent = `+ ${totalTracked - 2} more locked cookie(s) \u2014 click to show all`;
+              moreBtn.addEventListener('click', toggleLedgerExpand);
+              cookieLedgerList.appendChild(moreBtn);
+            }
           }
         } else {
-          cookieLedgerList.innerHTML =
-            '<div class="log-empty">No manipulated cookies tracked on this tab yet.</div>';
+          if (lastLedgerKey !== '__empty__') {
+            lastLedgerKey = '__empty__';
+            cookieLedgerList.innerHTML =
+              '<div class="log-empty">No manipulated cookies tracked on this tab yet.</div>';
+          }
         }
       }
 
-      if (Array.isArray(tabStats.logs) && tabStats.logs.length > 0) {
-        logFeed.innerHTML = '';
-        const visibleLogs = isLogExpanded ? tabStats.logs : tabStats.logs.slice(0, 3);
-        for (const item of visibleLogs) {
-          const div = document.createElement('div');
-          div.className = 'log-item';
-          const timeSpan = document.createElement('span');
-          timeSpan.className = 'log-time';
-          timeSpan.textContent = `[${item.time}]`;
-          const textSpan = document.createElement('span');
-          textSpan.textContent = item.summary;
-          div.appendChild(timeSpan);
-          div.appendChild(textSpan);
-          logFeed.appendChild(div);
+      if (logFeed) {
+        if (Array.isArray(tabStats.logs) && tabStats.logs.length > 0) {
+          const visibleLogs = isLogExpanded ? tabStats.logs : tabStats.logs.slice(0, 3);
+          const currentLogKey = `${isLogExpanded ? 'exp' : 'col'}:${tabStats.logs.length}:${visibleLogs
+            .map((l) => `${l.time}|${l.summary}`)
+            .join(';')}`;
+
+          if (currentLogKey !== lastLogKey) {
+            lastLogKey = currentLogKey;
+            logFeed.innerHTML = '';
+            for (const item of visibleLogs) {
+              const div = document.createElement('div');
+              div.className = 'log-item';
+              const timeSpan = document.createElement('span');
+              timeSpan.className = 'log-time';
+              timeSpan.textContent = `[${item.time}]`;
+              const textSpan = document.createElement('span');
+              textSpan.textContent = item.summary;
+              div.appendChild(timeSpan);
+              div.appendChild(textSpan);
+              logFeed.appendChild(div);
+            }
+          }
+        } else {
+          if (lastLogKey !== '__empty__') {
+            lastLogKey = '__empty__';
+            logFeed.innerHTML =
+              '<div class="log-empty">No tracking attempts intercepted on this tab yet.</div>';
+          }
         }
-      } else {
-        logFeed.innerHTML = '<div class="log-empty">No tracking attempts intercepted on this tab yet.</div>';
       }
     }
   }
