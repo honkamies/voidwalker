@@ -4,6 +4,22 @@ All notable changes to the Voidwalker browser extension are documented in this f
 
 ---
 
+## [v1.1.0] - 2026-10-26
+
+### 🚀 Added
+- **One-Click Google Ecosystem Whitelist Preset (`+ Google`):**
+  - Added dedicated preset pack targeting Google web properties: `google.com`, `googleusercontent.com`, and `gstatic.com`.
+  - Fixes breakage on Google Photos (`photos.google.com`), Google Drive (`drive.google.com`), and Gmail where canvas/WebGL noise or tracking cookie mutation prevented image preview rendering, photo editing, and authentication token validation.
+  - Automatically covers all subdomains and Google CDN media hosts (`*.googleusercontent.com`, `*.gstatic.com`).
+- **One-Click Microsoft 365 & Corporate Whitelist Preset (`+ Microsoft`):**
+  - Added dedicated corporate preset pack: `microsoft.com`, `office.com`, `live.com`, `microsoftonline.com`, `sharepoint.com`, and `office365.com`.
+  - Guarantees seamless single sign-on (SSO via Microsoft Entra ID / `microsoftonline.com`), SharePoint document libraries, Outlook on the Web, and Teams/Office suites without authentication redirect loops or enterprise policy friction.
+- **Enhanced Whitelist Drawer & Onboarding UI:**
+  - Integrated Google and Microsoft quick-add preset buttons directly into the popup exclusion drawer (`popup/popup.html`) with responsive flex-wrapping.
+  - Expanded first-install welcome and pinning guide (`welcome/welcome.html`) with a 4-card interactive preset pack matrix and live state toggle synchronization.
+
+---
+
 ## [v1.0.9] - 2026-10-25
 
 ### 🐛 Fixed

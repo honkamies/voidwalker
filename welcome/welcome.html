@@ -116,7 +116,41 @@
         </p>
 
         <div class="preset-packs-grid">
-          <!-- Preset 1: Media & Video -->
+          <!-- Preset 1: Google Suite & Photos -->
+          <div class="preset-pack-box" id="packGoogleBox">
+            <div class="pack-header">
+              <div class="pack-title">
+                <span class="pack-icon">🌐</span>
+                <div>
+                  <strong>Google Suite &amp; Photos</strong>
+                  <div class="pack-sub">Photos, Drive, Gmail, Docs, Accounts</div>
+                </div>
+              </div>
+              <button id="btnToggleGooglePack" class="btn-pack-toggle" data-pack="google">+ Add Pack</button>
+            </div>
+            <p class="pack-detail">
+              Prevents canvas/WebGL noise and cookie errors on Google Photos, Drive, and Google Workspace accounts.
+            </p>
+          </div>
+
+          <!-- Preset 2: Microsoft 365 & Corporate -->
+          <div class="preset-pack-box" id="packMicrosoftBox">
+            <div class="pack-header">
+              <div class="pack-title">
+                <span class="pack-icon">🏢</span>
+                <div>
+                  <strong>Microsoft 365 &amp; Corporate</strong>
+                  <div class="pack-sub">Office 365, Teams, Outlook, Azure, SharePoint</div>
+                </div>
+              </div>
+              <button id="btnToggleMicrosoftPack" class="btn-pack-toggle" data-pack="microsoft">+ Add Pack</button>
+            </div>
+            <p class="pack-detail">
+              Ensures Microsoft Entra ID (Azure AD) SSO, SharePoint corporate portals, and Office 365 web apps function untouched.
+            </p>
+          </div>
+
+          <!-- Preset 3: Video & Streaming -->
           <div class="preset-pack-box" id="packMediaBox">
             <div class="pack-header">
               <div class="pack-title">
@@ -133,20 +167,20 @@
             </p>
           </div>
 
-          <!-- Preset 2: Work & Conferencing -->
+          <!-- Preset 4: Work & Conferencing -->
           <div class="preset-pack-box" id="packWorkBox">
             <div class="pack-header">
               <div class="pack-title">
                 <span class="pack-icon">💼</span>
                 <div>
-                  <strong>Work &amp; Conferencing Pack</strong>
-                  <div class="pack-sub">Google Meet, Microsoft Teams, Zoom</div>
+                  <strong>Conferencing &amp; Meetings</strong>
+                  <div class="pack-sub">Zoom, Teams, Slack, Meet, Webex</div>
                 </div>
               </div>
               <button id="btnToggleWorkPack" class="btn-pack-toggle" data-pack="work">+ Add Pack</button>
             </div>
             <p class="pack-detail">
-              Ensures microphone/camera device IDs and corporate SSO credentials work smoothly during video meetings.
+              Ensures microphone/camera device IDs and corporate conferencing credentials work smoothly during video meetings.
             </p>
           </div>
         </div>

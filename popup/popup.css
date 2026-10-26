@@ -675,6 +675,7 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 5px;
+  flex-wrap: wrap;
 }
 
 .preset-label {

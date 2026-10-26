@@ -25,12 +25,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inputExcludeDomain = document.getElementById('inputExcludeDomain');
   const btnAddExcludeDomain = document.getElementById('btnAddExcludeDomain');
   const exclusionListItems = document.getElementById('exclusionListItems');
+  const btnPresetGoogle = document.getElementById('btnPresetGoogle');
+  const btnPresetMicrosoft = document.getElementById('btnPresetMicrosoft');
   const btnPresetMedia = document.getElementById('btnPresetMedia');
   const btnPresetWork = document.getElementById('btnPresetWork');
 
   const PRESET_PACKS = {
+    google: ['google.com', 'googleusercontent.com', 'gstatic.com'],
+    microsoft: ['microsoft.com', 'office.com', 'live.com', 'microsoftonline.com', 'sharepoint.com', 'office365.com'],
     media: ['youtube.com', 'twitch.tv', 'netflix.com', 'spotify.com'],
-    work: ['meet.google.com', 'teams.microsoft.com', 'zoom.us']
+    work: ['teams.microsoft.com', 'zoom.us', 'slack.com', 'meet.google.com', 'webex.com']
   };
 
   const updateDot = document.getElementById('updateDot');
@@ -209,18 +213,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    if (btnPresetMedia) {
-      const isMediaActive = PRESET_PACKS.media.every((d) => disabledDomains.includes(d));
-      btnPresetMedia.classList.toggle('active', isMediaActive);
-      btnPresetMedia.textContent = isMediaActive ? '\u2713 Media' : '+ Media Pack';
-      btnPresetMedia.title = isMediaActive ? 'Click to remove Media Pack from whitelist' : 'Add YouTube, Twitch, Netflix, Spotify to whitelist';
+    function updatePresetBtn(btn, packKey, label, desc) {
+      if (!btn) return;
+      const pack = PRESET_PACKS[packKey];
+      if (!pack) return;
+      const isActive = pack.every((d) => disabledDomains.includes(d));
+      btn.classList.toggle('active', isActive);
+      btn.textContent = isActive ? `\u2713 ${label}` : `+ ${label}`;
+      btn.title = isActive ? `Click to remove ${desc} from whitelist` : `Add ${desc} to whitelist`;
     }
-    if (btnPresetWork) {
-      const isWorkActive = PRESET_PACKS.work.every((d) => disabledDomains.includes(d));
-      btnPresetWork.classList.toggle('active', isWorkActive);
-      btnPresetWork.textContent = isWorkActive ? '\u2713 Work' : '+ Work Pack';
-      btnPresetWork.title = isWorkActive ? 'Click to remove Work Pack from whitelist' : 'Add Google Meet, Teams, Zoom to whitelist';
-    }
+
+    updatePresetBtn(btnPresetGoogle, 'google', 'Google', 'Google Suite (Photos, Drive, Gmail, Docs, Accounts)');
+    updatePresetBtn(btnPresetMicrosoft, 'microsoft', 'Microsoft', 'Microsoft 365, Teams, Outlook, Azure, SharePoint');
+    updatePresetBtn(btnPresetMedia, 'media', 'Media', 'YouTube, Twitch, Netflix, Spotify');
+    updatePresetBtn(btnPresetWork, 'work', 'Work', 'Teams, Zoom, Slack, Meet, Webex');
   }
 
   function addExcludedDomain(domainStr) {
@@ -620,6 +626,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     saveConfig(() => {
       refreshState();
     });
+  }
+
+  if (btnPresetGoogle) {
+    btnPresetGoogle.addEventListener('click', () => togglePresetPack('google'));
+  }
+
+  if (btnPresetMicrosoft) {
+    btnPresetMicrosoft.addEventListener('click', () => togglePresetPack('microsoft'));
   }
 
   if (btnPresetMedia) {

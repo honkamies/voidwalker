@@ -4,8 +4,10 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   const PRESET_PACKS = {
+    google: ['google.com', 'googleusercontent.com', 'gstatic.com'],
+    microsoft: ['microsoft.com', 'office.com', 'live.com', 'microsoftonline.com', 'sharepoint.com', 'office365.com'],
     media: ['youtube.com', 'twitch.tv', 'netflix.com', 'spotify.com'],
-    work: ['meet.google.com', 'teams.microsoft.com', 'zoom.us']
+    work: ['teams.microsoft.com', 'zoom.us', 'slack.com', 'meet.google.com', 'webex.com']
   };
 
   // 1. Browser Detection & Tab Switching
@@ -39,31 +41,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 2. Preset Whitelist Packs Management
-  const btnToggleMediaPack = document.getElementById('btnToggleMediaPack');
-  const packMediaBox = document.getElementById('packMediaBox');
-  const btnToggleWorkPack = document.getElementById('btnToggleWorkPack');
-  const packWorkBox = document.getElementById('packWorkBox');
-
   function updatePackButtons(disabledDomains) {
     const list = Array.isArray(disabledDomains) ? disabledDomains.map((d) => String(d).toLowerCase().trim()) : [];
 
-    // Media Pack
-    const mediaActive = PRESET_PACKS.media.every((d) => list.includes(d));
-    if (btnToggleMediaPack) {
-      btnToggleMediaPack.classList.toggle('active', mediaActive);
-      btnToggleMediaPack.textContent = mediaActive ? '✓ Pack Active' : '+ Add Pack';
-      btnToggleMediaPack.title = mediaActive ? 'Click to remove Media Pack from whitelist' : 'Add Media Pack to whitelist';
-    }
-    if (packMediaBox) packMediaBox.classList.toggle('active', mediaActive);
+    Object.keys(PRESET_PACKS).forEach((packKey) => {
+      const box = document.getElementById(`pack${packKey.charAt(0).toUpperCase() + packKey.slice(1)}Box`);
+      const btn = document.querySelector(`.btn-pack-toggle[data-pack="${packKey}"]`);
+      const isActive = PRESET_PACKS[packKey].every((d) => list.includes(d));
 
-    // Work Pack
-    const workActive = PRESET_PACKS.work.every((d) => list.includes(d));
-    if (btnToggleWorkPack) {
-      btnToggleWorkPack.classList.toggle('active', workActive);
-      btnToggleWorkPack.textContent = workActive ? '✓ Pack Active' : '+ Add Pack';
-      btnToggleWorkPack.title = workActive ? 'Click to remove Work Pack from whitelist' : 'Add Work Pack to whitelist';
-    }
-    if (packWorkBox) packWorkBox.classList.toggle('active', workActive);
+      if (box) box.classList.toggle('active', isActive);
+      if (btn) {
+        btn.classList.toggle('active', isActive);
+        btn.textContent = isActive ? '✓ Pack Active' : '+ Add Pack';
+        btn.title = isActive ? `Click to remove ${packKey} pack from whitelist` : `Add ${packKey} pack to whitelist`;
+      }
+    });
   }
 
   function togglePresetPack(packKey) {
@@ -92,13 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (btnToggleMediaPack) {
-    btnToggleMediaPack.addEventListener('click', () => togglePresetPack('media'));
-  }
-
-  if (btnToggleWorkPack) {
-    btnToggleWorkPack.addEventListener('click', () => togglePresetPack('work'));
-  }
+  document.querySelectorAll('.btn-pack-toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const packKey = btn.getAttribute('data-pack');
+      if (packKey) togglePresetPack(packKey);
+    });
+  });
 
   // Load initial config
   try {
