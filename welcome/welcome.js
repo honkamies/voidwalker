@@ -62,8 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const packDomains = PRESET_PACKS[packKey];
     if (!packDomains) return;
 
-    chrome.storage.local.get(['cgConfig'], (res) => {
-      const cfg = res && res.cgConfig ? { ...res.cgConfig } : {};
+    chrome.storage.local.get(['vwConfig', 'cgConfig'], (res) => {
+      const cfg = res && (res.vwConfig || res.cgConfig) ? { ...(res.vwConfig || res.cgConfig) } : {};
       let domains = Array.isArray(cfg.disabledDomains) ? [...cfg.disabledDomains] : ['youtube.com'];
 
       const allPresent = packDomains.every((d) => domains.includes(d));
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       cfg.disabledDomains = domains;
-      chrome.storage.local.set({ cgConfig: cfg }, () => {
+      chrome.storage.local.set({ vwConfig: cfg }, () => {
         updatePackButtons(domains);
       });
     });
@@ -93,16 +93,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load initial config
   try {
-    chrome.storage.local.get(['cgConfig'], (res) => {
-      const domains = res && res.cgConfig && Array.isArray(res.cgConfig.disabledDomains)
-        ? res.cgConfig.disabledDomains
+    chrome.storage.local.get(['vwConfig', 'cgConfig'], (res) => {
+      const cfg = res && (res.vwConfig || res.cgConfig);
+      const domains = cfg && Array.isArray(cfg.disabledDomains)
+        ? cfg.disabledDomains
         : ['youtube.com'];
       updatePackButtons(domains);
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.cgConfig && changes.cgConfig.newValue) {
-        updatePackButtons(changes.cgConfig.newValue.disabledDomains);
+      if (area === 'local' && (changes.vwConfig || changes.cgConfig)) {
+        const updated = (changes.vwConfig && changes.vwConfig.newValue) || (changes.cgConfig && changes.cgConfig.newValue);
+        if (updated && Array.isArray(updated.disabledDomains)) {
+          updatePackButtons(updated.disabledDomains);
+        }
       }
     });
   } catch (_) {}

@@ -44,7 +44,7 @@
       mainWorldConfirmed = true;
       return;
     }
-    if (!event.data.__cookieGuardianEvent) return;
+    if (!event.data.__vw_event__) return;
     mainWorldConfirmed = true;
     const data = event.data;
     const sig = `${data.type}|${data.detail && data.detail.summary}|${data.detail && data.detail.timestamp}`;
@@ -52,7 +52,7 @@
     seenEventSigs.add(sig);
     try {
       chrome.runtime.sendMessage({
-        action: 'LOG_GUARDIAN_EVENT',
+        action: 'LOG_VOIDWALKER_EVENT',
         eventType: data.type,
         detail: data.detail
       });
@@ -66,14 +66,18 @@
 
   // Load initial config and sync to MAIN world
   try {
-    chrome.storage.local.get(['cgConfig'], (res) => {
-      const cfg = Object.assign({}, DEFAULT_CONFIG, res && res.cgConfig ? res.cgConfig : {});
+    chrome.storage.local.get(['vwConfig', 'cgConfig'], (res) => {
+      const stored = res && (res.vwConfig || res.cgConfig);
+      const cfg = Object.assign({}, DEFAULT_CONFIG, stored ? stored : {});
       pushConfigToPage(cfg);
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.cgConfig) {
-        pushConfigToPage(changes.cgConfig.newValue);
+      if (area === 'local' && (changes.vwConfig || changes.cgConfig)) {
+        const updated = (changes.vwConfig && changes.vwConfig.newValue) || (changes.cgConfig && changes.cgConfig.newValue);
+        if (updated) {
+          pushConfigToPage(updated);
+        }
       }
     });
   } catch (_) {}

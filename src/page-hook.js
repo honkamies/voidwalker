@@ -210,7 +210,7 @@
     if (!config.enabled) return;
     try {
       const payload = {
-        __cookieGuardianEvent: true,
+        __vw_event__: true,
         type,
         detail: {
           ...detail,
@@ -437,7 +437,7 @@
 
   // 1B. Known CMP & "Pay or Okay" Auto-Acceptor + Wall Unlocker
   const CMP_ACCEPT_SELECTORS = [
-    // Sourcepoint (hs.fi, is.fi, aamulehti.fi, Guardian, etc.)
+    // Sourcepoint (hs.fi, is.fi, aamulehti.fi, The Guardian news, etc.)
     'button.sp_choice_type_11',
     '.message-component.message-button.no-children.focusable.sp_choice_type_11',
     'button[title="Hyv\u00e4ksy kaikki"]',
@@ -467,7 +467,7 @@
     '.cmplz-accept',
     '.osano-cm-accept-all',
     // Explicit test-lab & generic data attributes
-    '[data-cookie-guardian-accept]',
+    '[data-voidwalker-accept]',
     '[data-testid="accept-all-cookies"]',
     'button[data-action="accept-all"]'
   ];

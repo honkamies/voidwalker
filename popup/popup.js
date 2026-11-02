@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       disabledDomains: [...disabledDomains],
       whitelistSeeded: true
     };
-    chrome.storage.local.set({ cgConfig: newConfig }, () => {
+    chrome.storage.local.set({ vwConfig: newConfig }, () => {
       if (typeof cb === 'function') cb();
     });
   }

@@ -153,24 +153,26 @@ chrome.runtime.onInstalled.addListener((details) => {
     chrome.tabs.create({ url: chrome.runtime.getURL('welcome/welcome.html') }).catch(() => {});
   }
 
-  chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
-    if (!res.cgConfig) {
+  chrome.storage.local.get(['vwConfig', 'cgConfig', 'vwGlobalStats', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
+    const loadedConfig = (res && res.vwConfig) || (res && res.cgConfig);
+    if (!loadedConfig) {
       currentConfig = { ...DEFAULT_CONFIG, whitelistSeeded: true };
-      chrome.storage.local.set({ cgConfig: currentConfig });
+      chrome.storage.local.set({ vwConfig: currentConfig });
     } else {
-      currentConfig = { ...DEFAULT_CONFIG, ...res.cgConfig };
-      if (!res.cgConfig.whitelistSeeded) {
+      currentConfig = { ...DEFAULT_CONFIG, ...loadedConfig };
+      if (!loadedConfig.whitelistSeeded) {
         if (!Array.isArray(currentConfig.disabledDomains) || !currentConfig.disabledDomains.includes('youtube.com')) {
           currentConfig.disabledDomains = Array.from(new Set([...(currentConfig.disabledDomains || []), 'youtube.com']));
         }
         currentConfig.whitelistSeeded = true;
-        chrome.storage.local.set({ cgConfig: currentConfig });
+        chrome.storage.local.set({ vwConfig: currentConfig });
       }
     }
-    if (res.cgGlobalStats) {
-      globalStats = { ...globalStats, ...res.cgGlobalStats };
+    const loadedStats = (res && res.vwGlobalStats) || (res && res.cgGlobalStats);
+    if (loadedStats) {
+      globalStats = { ...globalStats, ...loadedStats };
     }
-    if (res.vwUpdateInfo) {
+    if (res && res.vwUpdateInfo) {
       cachedUpdateInfo = { ...cachedUpdateInfo, ...res.vwUpdateInfo };
     }
     checkForGitHubUpdate(true).catch(() => {});
@@ -183,19 +185,21 @@ chrome.runtime.onInstalled.addListener((details) => {
   } catch (_) {}
 });
 
-chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
-  if (res && res.cgConfig) {
-    currentConfig = { ...DEFAULT_CONFIG, ...res.cgConfig };
-    if (!res.cgConfig.googleWhitelistSeeded_v2) {
+chrome.storage.local.get(['vwConfig', 'cgConfig', 'vwGlobalStats', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
+  const loadedConfig = (res && res.vwConfig) || (res && res.cgConfig);
+  if (loadedConfig) {
+    currentConfig = { ...DEFAULT_CONFIG, ...loadedConfig };
+    if (!loadedConfig.googleWhitelistSeeded_v2) {
       const googleDefaults = ['google.com', 'google.fi', 'googleusercontent.com', 'gstatic.com', 'googleapis.com', 'youtube.com'];
       currentConfig.disabledDomains = Array.from(new Set([...(currentConfig.disabledDomains || []), ...googleDefaults]));
       currentConfig.googleWhitelistSeeded_v2 = true;
       currentConfig.whitelistSeeded = true;
-      chrome.storage.local.set({ cgConfig: currentConfig });
+      chrome.storage.local.set({ vwConfig: currentConfig });
     }
   }
-  if (res && res.cgGlobalStats) {
-    globalStats = { ...globalStats, ...res.cgGlobalStats };
+  const loadedStats = (res && res.vwGlobalStats) || (res && res.cgGlobalStats);
+  if (loadedStats) {
+    globalStats = { ...globalStats, ...loadedStats };
   }
   if (res && res.vwUpdateInfo) {
     cachedUpdateInfo = { ...cachedUpdateInfo, ...res.vwUpdateInfo };
@@ -217,10 +221,13 @@ if (chrome.alarms && chrome.alarms.onAlarm) {
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.cgConfig && changes.cgConfig.newValue) {
-    currentConfig = { ...DEFAULT_CONFIG, ...changes.cgConfig.newValue };
-    for (const [tId] of tabStats.entries()) {
-      updateBadge(tId);
+  if (area === 'local' && (changes.vwConfig || changes.cgConfig)) {
+    const updated = (changes.vwConfig && changes.vwConfig.newValue) || (changes.cgConfig && changes.cgConfig.newValue);
+    if (updated) {
+      currentConfig = { ...DEFAULT_CONFIG, ...updated };
+      for (const [tId] of tabStats.entries()) {
+        updateBadge(tId);
+      }
     }
   }
 });
@@ -304,7 +311,7 @@ function upsertTabTrackedCookie(entry, name, poisonedValue, source, isReinjectio
   }
 }
 
-function recordGuardianEvent(tabId, eventType, detail, senderUrl) {
+function recordVoidwalkerEvent(tabId, eventType, detail, senderUrl) {
   if (senderUrl && isDomainDisabled(senderUrl)) return;
   const entry = getOrCreateTabEntry(tabId);
   const d = detail || {};
@@ -371,7 +378,7 @@ function recordGuardianEvent(tabId, eventType, detail, senderUrl) {
     entry.logs.length = 45;
   }
 
-  chrome.storage.local.set({ cgGlobalStats: globalStats });
+  chrome.storage.local.set({ vwGlobalStats: globalStats });
   updateBadge(tabId);
 }
 
@@ -566,14 +573,14 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
     for (const t of tabs) {
       if (t.url && t.url.includes(cleanDomain)) {
         if (isReinjectionOrVersionBump) {
-          recordGuardianEvent(t.id, 'COOKIE_REINJECTION_BLOCKED', {
+          recordVoidwalkerEvent(t.id, 'COOKIE_REINJECTION_BLOCKED', {
             name: cookie.name,
             lockedValue: newValue,
             source: 'HTTP',
             summary: `Followed HTTP Cookie '${cookie.name}' -> blocked server overwrite (${newValue.slice(0, 12)}...)`
           });
         } else {
-          recordGuardianEvent(t.id, 'COOKIE_MUTATED', {
+          recordVoidwalkerEvent(t.id, 'COOKIE_MUTATED', {
             name: cookie.name,
             poisoned: newValue,
             source: 'HTTP',
@@ -641,7 +648,7 @@ async function mutateAllCookiesForUrl(urlStr, tabId) {
         mutatedCount++;
 
         if (tabId) {
-          recordGuardianEvent(tabId, 'COOKIE_MUTATED', {
+          recordVoidwalkerEvent(tabId, 'COOKIE_MUTATED', {
             name: cookie.name,
             poisoned: newValue,
             source: 'HTTP',
@@ -660,10 +667,10 @@ async function mutateAllCookiesForUrl(urlStr, tabId) {
 // MESSAGE ROUTER FOR CONTENT SCRIPTS & POPUP UI
 // ============================================================================
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.action === 'LOG_GUARDIAN_EVENT') {
+  if (msg.action === 'LOG_VOIDWALKER_EVENT') {
     const tabId = sender && sender.tab ? sender.tab.id : null;
     if (tabId) {
-      recordGuardianEvent(tabId, msg.eventType, msg.detail || {}, sender.tab.url || '');
+      recordVoidwalkerEvent(tabId, msg.eventType, msg.detail || {}, sender.tab.url || '');
     }
     sendResponse({ ok: true });
     return true;
