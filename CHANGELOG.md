@@ -4,6 +4,18 @@ All notable changes to the Voidwalker browser extension are documented in this f
 
 ---
 
+## [v1.1.1] - 2026-11-02
+
+### 🐛 Fixed
+- **Resolved Google Services "Cookie Mismatch" & Authentication Lockout:**
+  - Added zero-latency built-in protection (`GOOGLE_DOMAIN_REGEX`) covering all Google properties (`google.com`, `google.fi`, `accounts.google.*`, `mail.google.*`, `drive.google.*`, `photos.google.*`, `googleusercontent.com`, `gstatic.com`, `googleapis.com`, `googlevideo.com`, `youtube.com`, `youtu.be`, `g.co`, `goo.gl`).
+  - Implemented synchronous 0.00ms early defense in `src/page-hook.js` so Google services are immediately bypassed at `document_start` before asynchronous storage sync, preventing any initial cookie scrambling or canvas noise.
+  - Whitelisted all 35 Google and SSO session/authentication tokens in `SAFE_KEY_PATTERNS` and `SAFE_COOKIE_NAMES` (`SAPISID`, `APISID`, `SSID`, `HSID`, `SID`, `SIDCC`, `NID`, `AEC`, `GAPS`, `LSID`, `OTZ`, `SOCS`, `CONSENT`, `1P_JAR`, `LOGIN_INFO`, `YSC`, `__Secure-.*`, `__Host-.*`, `SECURE_CROSS_ACCOUNT_AUTH_TOKEN`, etc.) so they are never flagged by entropy heuristics or mutated on third-party sites using Google Sign-In.
+  - Guarded `writeCookieAcrossDomainScopes` to prevent duplicate or conflicting `.google.com` domain cookies that caused session collision errors.
+  - Expanded default whitelists and preset buttons in popup and onboarding welcome pages to include regional domains (`google.fi`) and APIs (`googleapis.com`).
+
+---
+
 ## [v1.1.0] - 2026-10-26
 
 ### 🚀 Added

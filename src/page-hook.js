@@ -41,6 +41,9 @@
     else if (val === '0') isExcludedPersisted = false;
   } catch (_) {}
 
+  const GOOGLE_DOMAIN_REGEX =
+    /(^|\.)(google\.[a-z]{2,3}(\.[a-z]{2})?|googleusercontent\.com|gstatic\.com|googleapis\.com|googlevideo\.com|youtube\.com|youtu\.be|ytimg\.com|g\.co|goo\.gl)$/i;
+
   const config = {
     enabled: true,
     consentSpoofer: true,
@@ -53,12 +56,14 @@
     fpScreen: true,
     fpHardware: true,
     chaffGenerator: true,
-    disabledDomains: ['youtube.com']
+    disabledDomains: ['google.com', 'google.fi', 'googleusercontent.com', 'gstatic.com', 'googleapis.com', 'youtube.com']
   };
 
   function isCurrentDomainDisabled() {
     const host = (location.hostname || '').toLowerCase().replace(/^www\./, '');
-    if (!host || !Array.isArray(config.disabledDomains) || config.disabledDomains.length === 0) {
+    if (!host) return false;
+    if (GOOGLE_DOMAIN_REGEX.test(host)) return true;
+    if (!Array.isArray(config.disabledDomains) || config.disabledDomains.length === 0) {
       return false;
     }
     return config.disabledDomains.some((d) => {
@@ -644,7 +649,7 @@
 
   // Functional & consent-unlock cookies that MUST remain intact so walls stay unlocked & logins work
   const SAFE_KEY_PATTERNS =
-    /^(euconsent-v2|consentDate|sammio-init-time|test[_-]?0\.|__.*test__|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|_sp_local_state|_sp_non_keyed_local_state|sp_tcfv2|didomi_token|didomi_dcs|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-|__Secure-|csrf|xsrf|auth|session|login|cart|theme|lang|locale|cf_clearance|__cf_bm)/i;
+    /^(?:euconsent-v2|consentDate|sammio-init-time|test[_-]?0\.|__.*test__|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|_sp_local_state|_sp_non_keyed_local_state|sp_tcfv2|didomi_token|didomi_dcs|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-.*|__Secure-.*|csrf.*|xsrf.*|auth.*|session.*|login.*|cart.*|theme.*|lang.*|locale.*|cf_clearance|__cf_bm|SAPISID|APISID|SSID|HSID|SID|SIDCC|NID|AEC|GAPS|LSID|OTZ|SOCS|CONSENT|1P_JAR|SNID|ANID|OGPC|OGP|SEARCH_SAMESITE|ACCOUNT_CHOOSER|LOGIN_INFO|SMSV|PM_V2|COMPASS|PREF|YSC|VISITOR_INFO1_LIVE|VISITOR_PRIVACY_METADATA|SECURE_CROSS_ACCOUNT_AUTH_TOKEN|ESTSAUTH.*|ESTSAUTHPERSISTENT|ESTSAUTHLIGHT|SignInStateCookie|MSPOK|buid|fpc|myacinfo|dqsid|ubid-main|at-main|sess-at-main)$/i;
 
   // Tracker cookie name patterns (matches versioned suffixes like _ga_ABC123, _sp_v2_uid, consentUUID_v2, Sammio sammio-bsid, Chartbeat _cb, Cxense cX_, Piano _pcid, etc.)
   const TRACKER_KEY_PATTERNS =
@@ -963,7 +968,8 @@
     }
     rawCookieSet(`${k}=${poisonedVal}${attrTail || '; path=/'}`);
     try {
-      const host = location.hostname || '';
+      const host = (location.hostname || '').toLowerCase();
+      if (GOOGLE_DOMAIN_REGEX.test(host) || isCurrentDomainDisabled()) return;
       const parts = host.split('.');
       if (parts.length >= 2) {
         const rootDomain = parts.slice(-2).join('.');

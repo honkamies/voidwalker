@@ -8,6 +8,9 @@
  *  4. Toolbar Badge Counter & Popup State Provider
  */
 
+const GOOGLE_DOMAIN_REGEX =
+  /(^|\.)(google\.[a-z]{2,3}(\.[a-z]{2})?|googleusercontent\.com|gstatic\.com|googleapis\.com|googlevideo\.com|youtube\.com|youtu\.be|ytimg\.com|g\.co|goo\.gl)$/i;
+
 const DEFAULT_CONFIG = {
   enabled: true,
   consentSpoofer: true,
@@ -20,15 +23,13 @@ const DEFAULT_CONFIG = {
   fpScreen: true,
   fpHardware: true,
   chaffGenerator: true,
-  disabledDomains: ['youtube.com']
+  disabledDomains: ['google.com', 'google.fi', 'googleusercontent.com', 'gstatic.com', 'googleapis.com', 'youtube.com']
 };
 
 let currentConfig = { ...DEFAULT_CONFIG };
 
 function isDomainDisabled(domainStr) {
-  if (!domainStr || !Array.isArray(currentConfig.disabledDomains) || currentConfig.disabledDomains.length === 0) {
-    return false;
-  }
+  if (!domainStr) return false;
   let cleanHost = String(domainStr).toLowerCase();
   try {
     if (cleanHost.includes('://')) {
@@ -36,6 +37,10 @@ function isDomainDisabled(domainStr) {
     }
   } catch (_) {}
   cleanHost = cleanHost.replace(/^\.+/, '').replace(/^www\./, '').split('/')[0].split(':')[0];
+  if (GOOGLE_DOMAIN_REGEX.test(cleanHost)) return true;
+  if (!Array.isArray(currentConfig.disabledDomains) || currentConfig.disabledDomains.length === 0) {
+    return false;
+  }
   return currentConfig.disabledDomains.some((d) => {
     let cleanD = String(d || '').toLowerCase().trim();
     cleanD = cleanD.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0].replace(/^www\./, '');
@@ -181,10 +186,10 @@ chrome.runtime.onInstalled.addListener((details) => {
 chrome.storage.local.get(['cgConfig', 'cgGlobalStats', 'vwUpdateInfo'], (res) => {
   if (res && res.cgConfig) {
     currentConfig = { ...DEFAULT_CONFIG, ...res.cgConfig };
-    if (!res.cgConfig.whitelistSeeded) {
-      if (!Array.isArray(currentConfig.disabledDomains) || !currentConfig.disabledDomains.includes('youtube.com')) {
-        currentConfig.disabledDomains = Array.from(new Set([...(currentConfig.disabledDomains || []), 'youtube.com']));
-      }
+    if (!res.cgConfig.googleWhitelistSeeded_v2) {
+      const googleDefaults = ['google.com', 'google.fi', 'googleusercontent.com', 'gstatic.com', 'googleapis.com', 'youtube.com'];
+      currentConfig.disabledDomains = Array.from(new Set([...(currentConfig.disabledDomains || []), ...googleDefaults]));
+      currentConfig.googleWhitelistSeeded_v2 = true;
       currentConfig.whitelistSeeded = true;
       chrome.storage.local.set({ cgConfig: currentConfig });
     }
@@ -373,7 +378,8 @@ function recordGuardianEvent(tabId, eventType, detail, senderUrl) {
 // ============================================================================
 // BROWSER-LEVEL HTTP COOKIE SNIFFER, STATEFUL LEDGER & FORMAT-PRESERVING MUTATOR
 // ============================================================================
-const SAFE_COOKIE_NAMES = /^(euconsent-v2|consentDate|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|sp_tcfv2|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-|__Secure-|csrf|xsrf|auth|session|login|cart)/i;
+const SAFE_COOKIE_NAMES =
+  /^(?:euconsent-v2|consentDate|OptanonAlertBoxClosed|OptanonConsent|CookieConsent|_sp_v1_data|_sp_v1_ss|_sp_v1_opt|_sp_su|sp_tcfv2|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|connect\.sid|__Host-.*|__Secure-.*|csrf.*|xsrf.*|auth.*|session.*|login.*|cart.*|theme.*|lang.*|locale.*|SAPISID|APISID|SSID|HSID|SID|SIDCC|NID|AEC|GAPS|LSID|OTZ|SOCS|CONSENT|1P_JAR|SNID|ANID|OGPC|OGP|SEARCH_SAMESITE|ACCOUNT_CHOOSER|LOGIN_INFO|SMSV|PM_V2|COMPASS|PREF|YSC|VISITOR_INFO1_LIVE|VISITOR_PRIVACY_METADATA|SECURE_CROSS_ACCOUNT_AUTH_TOKEN|ESTSAUTH.*|ESTSAUTHPERSISTENT|ESTSAUTHLIGHT|SignInStateCookie|MSPOK|buid|fpc|myacinfo|dqsid|ubid-main|at-main|sess-at-main)$/i;
 const TRACKER_COOKIE_NAMES = /^(_ga|_ga_[A-Z0-9]+|_gid|_gat|_fbp|_fbc|_gcl_au|_uetsid|_uetvid|consentUUID|consentUUID_[a-z0-9]+|_sp_v\d+_uid|_sp_v\d+_p|_cb|_cb_svref|_chartbeat|_v__chartbeat|_pcid|_pctx|_pprv|cX_|FPID|FPLC|im_uid|s_ecid|AMCV_|AMCVS_|s_cc|s_sq|s_vi|demdex|IDE|muid|uuid2|anj|_ym_uid|hubspotutk|ajs_anonymous_id|criteo|cto_bundle|__gads|__gpi)/i;
 
 function canonicalCookieFamily(name) {

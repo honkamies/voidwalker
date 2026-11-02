@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnPresetWork = document.getElementById('btnPresetWork');
 
   const PRESET_PACKS = {
-    google: ['google.com', 'googleusercontent.com', 'gstatic.com'],
+    google: ['google.com', 'google.fi', 'googleusercontent.com', 'gstatic.com', 'googleapis.com', 'youtube.com'],
     microsoft: ['microsoft.com', 'office.com', 'live.com', 'microsoftonline.com', 'sharepoint.com', 'office365.com'],
     media: ['youtube.com', 'twitch.tv', 'netflix.com', 'spotify.com'],
     work: ['teams.microsoft.com', 'zoom.us', 'slack.com', 'meet.google.com', 'webex.com']
