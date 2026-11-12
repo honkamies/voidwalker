@@ -4,6 +4,17 @@ All notable changes to the Voidwalker browser extension are documented in this f
 
 ---
 
+## [v1.1.2] - 2026-11-12
+
+### 🐛 Fixed
+- **Resolved Canvas2D Readback Warning & Extension Error Flag:**
+  - Fixed Chromium extension error (`Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true`) triggered on websites with aggressive bot/fraud telemetry and login flows (such as OP Financial Group / `op.fi`).
+  - **Zero-Readback Canvas Perturbation:** Refactored `injectCanvasPixelNoise` from synchronous `origGetImageData` / `origPutImageData` readbacks to write-only micro-draw operations (`ctx.fillRect`), completely eliminating GPU readback stalls and preventing Chromium from flagging repeated readback operations in `chrome://extensions -> Errors`.
+  - **Canvas Noise Deduplication:** Added `WeakSet` tracking to guarantee that once a canvas element has noise injected, subsequent `toDataURL()` or `toBlob()` calls on the same canvas never trigger repeated perturbations.
+  - **Automatic `willReadFrequently: true` Context Injection:** Hooked `HTMLCanvasElement.prototype.getContext` and `OffscreenCanvas.prototype.getContext` to inject `{ willReadFrequently: true }` on 2D rendering contexts whenever `fpCanvas` protection is active, ensuring all native and third-party `getImageData` calls use CPU-backed memory and stay completely silent without console warnings.
+
+---
+
 ## [v1.1.1] - 2026-11-02
 
 ### 🐛 Fixed

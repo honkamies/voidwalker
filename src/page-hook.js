@@ -1526,33 +1526,88 @@
       Boolean(config.enabled && config.fingerprintSpoofer && config[subFlag] !== false);
 
     // ------------------------------------------------------------------------
-    // 4A. Canvas 2D (`toDataURL`, `toBlob`, `getImageData`) & Font `measureText`
+    // 4A. Canvas 2D (`getContext`, `toDataURL`, `toBlob`, `getImageData`) & Font `measureText`
     // ------------------------------------------------------------------------
     try {
-      let inInternalCanvasRead = false;
       const origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
-      const origPutImageData = CanvasRenderingContext2D.prototype.putImageData;
       const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
       const origToBlob = HTMLCanvasElement.prototype.toBlob;
       const origMeasureText = CanvasRenderingContext2D.prototype.measureText;
+      const noisedCanvases = new WeakSet();
+
+      // Hook getContext on HTMLCanvasElement and OffscreenCanvas to guarantee `willReadFrequently: true`
+      // on 2D contexts when canvas fingerprint protection is active. This avoids GPU readback pipeline stalls
+      // and completely silences Chromium's "Canvas2D: Multiple readback operations using getImageData are faster
+      // with the willReadFrequently attribute set to true" warning on sites with aggressive bot/fraud telemetry.
+      if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype.getContext) {
+        const origGetContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (contextType, contextAttributes) {
+          if (contextType === '2d' && isFpLayerActive('fpCanvas')) {
+            if (contextAttributes && typeof contextAttributes === 'object') {
+              if (contextAttributes.willReadFrequently === undefined) {
+                contextAttributes = Object.assign({}, contextAttributes, { willReadFrequently: true });
+              }
+            } else {
+              contextAttributes = { willReadFrequently: true };
+            }
+          }
+          return origGetContext.call(this, contextType, contextAttributes);
+        };
+      }
+
+      if (typeof OffscreenCanvas !== 'undefined' && OffscreenCanvas.prototype.getContext) {
+        const origOffscreenGetContext = OffscreenCanvas.prototype.getContext;
+        OffscreenCanvas.prototype.getContext = function (contextType, contextAttributes) {
+          if (contextType === '2d' && isFpLayerActive('fpCanvas')) {
+            if (contextAttributes && typeof contextAttributes === 'object') {
+              if (contextAttributes.willReadFrequently === undefined) {
+                contextAttributes = Object.assign({}, contextAttributes, { willReadFrequently: true });
+              }
+            } else {
+              contextAttributes = { willReadFrequently: true };
+            }
+          }
+          return origOffscreenGetContext.call(this, contextType, contextAttributes);
+        };
+      }
 
       const injectCanvasPixelNoise = (canvasEl) => {
         if (!canvasEl || canvasEl.width <= 0 || canvasEl.height <= 0) return;
-        const ctx = canvasEl.getContext('2d');
-        if (!ctx) return;
-        inInternalCanvasRead = true;
+        if (noisedCanvases.has(canvasEl)) return;
+
+        let ctx = null;
         try {
-          const w = Math.min(4, canvasEl.width);
-          const h = Math.min(4, canvasEl.height);
-          const imgData = origGetImageData.call(ctx, 0, 0, w, h);
-          imgData.data[0] = (imgData.data[0] + FAKE_PERSONA.canvasNoiseSeed) % 256;
-          if (imgData.data.length > 4) {
-            imgData.data[4] = (imgData.data[4] + (FAKE_PERSONA.canvasNoiseSeed ^ 0x37)) % 256;
+          ctx = canvasEl.getContext('2d');
+        } catch (_) {
+          return;
+        }
+        if (!ctx) return;
+
+        noisedCanvases.add(canvasEl);
+
+        try {
+          // Zero-readback micro-perturbation at pixel (0,0).
+          // Using write-only canvas operations eliminates GPU readback stalls and guarantees
+          // Chromium's 'Canvas2D: Multiple readback operations using getImageData' warning is never triggered.
+          ctx.save();
+          if (typeof ctx.setTransform === 'function') {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
           }
-          origPutImageData.call(ctx, imgData, 0, 0);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.shadowColor = 'transparent';
+          if ('filter' in ctx) {
+            ctx.filter = 'none';
+          }
+          const r = FAKE_PERSONA.canvasNoiseSeed & 0xff;
+          const g = (FAKE_PERSONA.canvasNoiseSeed >> 4) & 0xff;
+          const b = (FAKE_PERSONA.canvasNoiseSeed ^ 0x37) & 0xff;
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.01)`;
+          ctx.fillRect(0, 0, 1, 1);
         } catch (_) {
         } finally {
-          inInternalCanvasRead = false;
+          try {
+            ctx.restore();
+          } catch (_) {}
         }
       };
 
@@ -1577,7 +1632,7 @@
       if (origGetImageData) {
         CanvasRenderingContext2D.prototype.getImageData = function (sx, sy, sw, sh) {
           const imgData = origGetImageData.call(this, sx, sy, sw, sh);
-          if (!inInternalCanvasRead && isFpLayerActive('fpCanvas') && imgData && imgData.data && imgData.data.length >= 16) {
+          if (isFpLayerActive('fpCanvas') && imgData && imgData.data && imgData.data.length >= 16) {
             imgData.data[0] = (imgData.data[0] + FAKE_PERSONA.canvasNoiseSeed) % 256;
             imgData.data[4] = (imgData.data[4] + ((FAKE_PERSONA.canvasNoiseSeed * 3) & 0xff)) % 256;
             reportFingerprint('Canvas ImageData', `Randomized raw Canvas getImageData pixel buffer`);
